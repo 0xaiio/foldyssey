@@ -641,12 +641,18 @@ input[type='range']::-moz-range-thumb {
   flex: none;
 }
 
-.verdict--perfect .verdict__dot {
+.verdict--exact .verdict__dot {
   background: var(--teal);
   box-shadow: 0 0 0 5px rgba(55, 140, 134, 0.16);
 }
 
-.verdict--close .verdict__dot {
+/* "pass" is the goal, so it gets the celebratory colour; "exact" is the bonus. */
+.verdict--pass .verdict__dot {
+  background: var(--teal);
+  box-shadow: 0 0 0 5px rgba(55, 140, 134, 0.12);
+}
+
+.verdict--near .verdict__dot {
   background: var(--gold);
   box-shadow: 0 0 0 5px rgba(201, 164, 106, 0.18);
 }
@@ -1526,4 +1532,108 @@ input[type='range']::-moz-range-thumb {
   .ai-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- how-to-play strip ---------- */
+
+.howto {
+  margin-top: 16px;
+  padding: 12px 16px 14px;
+  border-radius: 16px;
+  border: 1px dashed var(--line-strong);
+  background: rgba(255, 253, 248, 0.6);
+}
+
+.howto__head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+}
+
+.howto__toggle {
+  font-size: 12px;
+  color: var(--ink-faint);
+  letter-spacing: 0.08em;
+}
+
+.howto__list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
+
+.howto__list b {
+  color: var(--ink);
+}
+
+.howto__stage {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
+.howto__drag {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--ink-faint);
+}
+
+/* ---------- diagnosis ---------- */
+
+.diag {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.diag__box {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(55, 140, 134, 0.08);
+  border: 1px solid rgba(55, 140, 134, 0.22);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.diag__box strong {
+  display: block;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.diag__box p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.verdict__gap {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(201, 164, 106, 0.14);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+.verdict__gap b {
+  color: var(--ink);
+  font-size: 15px;
 }

@@ -139,6 +139,15 @@ def main() -> int:
     cdp.wait_for("!!document.querySelector('.stage-badge')", 8, "puzzle")
     time.sleep(0.6)
     check("puzzle: level title", "菱形奇迹" in (cdp.eval("document.body.innerText") or ""))
+    check("puzzle: how-to strip is on screen", "怎么玩" in (cdp.eval("document.body.innerText") or ""))
+    check("puzzle: how-to names both cut tabs and sliders",
+          "第 1 刀" in (cdp.eval("document.body.innerText") or "")
+          or "只有" in (cdp.eval("document.body.innerText") or ""))
+    check("puzzle: live preview card exists",
+          bool(cdp.eval("document.body.innerText.includes('展开预览')")))
+    check("puzzle: live IoU readout exists",
+          "吻合" in (cdp.eval("document.body.innerText") or ""))
+    check("puzzle: stage badge", "阶段 2" in (cdp.eval("document.body.innerText") or ""))
     check("puzzle: stage renders 4 patches",
           (cdp.eval("document.querySelectorAll('.stage-card svg path').length") or 0) >= 4,
           str(cdp.eval("document.querySelectorAll('.stage-card svg path').length")))
@@ -173,7 +182,7 @@ def main() -> int:
     check("puzzle: cut button clickable", bool(clicked))
     time.sleep(3.2)
     verdict = cdp.eval("document.querySelector('.verdict__text strong')?.textContent || ''")
-    check("puzzle: canonical solution clears the level", verdict == "完全匹配", str(verdict))
+    check("puzzle: canonical solution clears the level", verdict in ("完全匹配", "达标"), str(verdict))
     iou_text = cdp.eval("[...document.querySelectorAll('.metric')].map(m=>m.innerText).join(' | ')")
     check("puzzle: metrics present", "iou" in (iou_text or "").lower(), str(iou_text)[:120])
     visible = cdp.eval(
@@ -200,9 +209,33 @@ def main() -> int:
     )
     time.sleep(0.4)
 
+    asked = cdp.eval(
+        "(()=>{const b=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()==='差在哪？');"
+        "if(b){b.click();return true}return false})()"
+    )
+    time.sleep(0.6)
+    check("puzzle: 'what is off' returns a diagnosis", bool(asked))
+    diag = cdp.eval("document.querySelector('.diag__box')?.innerText || ''")
+    check("puzzle: diagnosis names a slider",
+          any(k in (diag or "") for k in ("角度", "距中心", "顶点距中心", "张口宽度")), str(diag)[:90])
+    check("puzzle: diagnosis offers one-tap adjust",
+          "按建议调整" in (cdp.eval("document.body.innerText") or ""), "")
+
     check("puzzle: slider changes the offset readout",
           "0.52" in (cdp.eval("document.body.innerText") or ""),
           str(cdp.eval("document.body.innerText") or "")[:0])
+
+    # --- 阶段 1：观察提示自动展开 ---
+    cdp.eval("location.hash = '#/puzzle/corner'")
+    cdp.wait_for("document.body.innerText.includes('角落初探')", 8, "corner")
+    time.sleep(1.0)
+    check("stage 1: label shown", "阶段 1" in (cdp.eval("document.body.innerText") or ""))
+    check("stage 1: observation hint already open",
+          "提示" in (cdp.eval("document.body.innerText") or "")
+          and (cdp.eval("document.querySelectorAll('.hint-list li').length") or 0) >= 1,
+          str(cdp.eval("document.querySelectorAll('.hint-list li').length")))
+    check("stage 1: level is a single straight cut",
+          (cdp.eval("document.querySelectorAll('.cut-tab').length") or 0) == 0)
 
     # --- 八折团花关：多切口 + 折剪面板 ---
     cdp.eval("location.hash = '#/puzzle/rosette'")

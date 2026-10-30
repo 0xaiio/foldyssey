@@ -4,6 +4,20 @@
  * Comparison happens on the region sets themselves, never on screenshots:
  *   IoU = Area(A ∩ T) / Area(A ∪ T)
  *   E   = Area(A Δ T) / Area(P)
+ *
+ * Why four tiers instead of "perfect or nothing"
+ * ----------------------------------------------
+ * Measured on the shipped levels (one slider step off the canonical solution):
+ *
+ *   corner       0.01 offset  -> 99.8 %
+ *   mirror-gate  0.01 offset  -> 99.7 %
+ *   diamond      0.01 offset  -> 99.0 %
+ *   octagram     0.5°  angle  -> 98.0 %   <- the finest step the UI allows
+ *
+ * With the old gate (`iou >= 0.99`), the eight-fold level was only winnable by
+ * landing on one of 360 slider positions with no feedback about which. That is
+ * not a puzzle, it is guessing. The tiers below separate "you understood the
+ * geometry" (pass) from "you hit the number exactly" (exact, a bonus).
  */
 
 import {
@@ -15,19 +29,31 @@ import {
   unionMP,
 } from './polygon';
 
-export type Verdict = 'perfect' | 'close' | 'miss';
+export type Verdict = 'exact' | 'pass' | 'near' | 'miss';
 
 export type ScoreThresholds = {
-  perfectIou: number;
-  perfectSym: number;
-  closeIou: number;
+  /** Hit the canonical values: a bonus, never required. */
+  exactIou: number;
+  /** Clear the level. */
+  passIou: number;
+  /** Close enough to get a directional hint instead of a plain "no". */
+  nearIou: number;
 };
 
 export const DEFAULT_THRESHOLDS: ScoreThresholds = {
-  perfectIou: 0.99,
-  perfectSym: 0.02,
-  closeIou: 0.9,
+  exactIou: 0.995,
+  passIou: 0.94,
+  nearIou: 0.88,
 };
+
+/** Per-stage budgets, from "learn the controls" to "read the pattern". */
+export const STAGE_THRESHOLDS: Record<1 | 2 | 3, ScoreThresholds> = {
+  1: { exactIou: 0.995, passIou: 0.92, nearIou: 0.85 },
+  2: { exactIou: 0.995, passIou: 0.94, nearIou: 0.88 },
+  3: { exactIou: 0.995, passIou: 0.96, nearIou: 0.9 },
+};
+
+export const isCleared = (verdict: Verdict): boolean => verdict === 'exact' || verdict === 'pass';
 
 export type ScoreResult = {
   iou: number;
@@ -37,6 +63,8 @@ export type ScoreResult = {
   intersectionArea: number;
   unionArea: number;
   verdict: Verdict;
+  /** How much IoU is still missing to `passIou` (0 when already passing). */
+  gap: number;
   /** Paper that should not be there (A \ T). */
   extra: MultiPolygon;
   /** Paper that is missing (T \ A). */
@@ -44,9 +72,10 @@ export type ScoreResult = {
 };
 
 export const VERDICT_LABEL: Record<Verdict, string> = {
-  perfect: '完全匹配',
-  close: '接近',
-  miss: '未匹配',
+  exact: '完全匹配',
+  pass: '达标',
+  near: '接近',
+  miss: '未达标',
 };
 
 export function scorePaper(
@@ -69,8 +98,9 @@ export function scorePaper(
   const symmetricRatio = Math.min(1, symArea / PAPER_AREA);
 
   let verdict: Verdict = 'miss';
-  if (iou >= thresholds.perfectIou && symmetricRatio <= thresholds.perfectSym) verdict = 'perfect';
-  else if (iou >= thresholds.closeIou) verdict = 'close';
+  if (iou >= thresholds.exactIou) verdict = 'exact';
+  else if (iou >= thresholds.passIou) verdict = 'pass';
+  else if (iou >= thresholds.nearIou) verdict = 'near';
 
   return {
     iou,
@@ -80,6 +110,7 @@ export function scorePaper(
     intersectionArea,
     unionArea,
     verdict,
+    gap: Math.max(0, thresholds.passIou - iou),
     extra,
     missing,
   };

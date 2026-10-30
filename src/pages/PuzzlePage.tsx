@@ -12,9 +12,16 @@ import {
   type Cut,
 } from '../geometry/cut';
 import { getPreset } from '../geometry/fold';
-import { formatPercent, scorePaper, VERDICT_LABEL, type ScoreResult } from '../geometry/score';
+import {
+  formatPercent,
+  isCleared,
+  scorePaper,
+  VERDICT_LABEL,
+  type ScoreResult,
+} from '../geometry/score';
 import { useAnimatedValue } from '../hooks/useAnimatedValue';
-import { LEVELS, TIER_LABEL, getLevel } from '../puzzle/levels';
+import { LEVELS, STAGE_HINT, TIER_LABEL, getLevel } from '../puzzle/levels';
+import { applyNudge, diagnose, type Diagnosis } from '../puzzle/assist';
 import { loadProgress, recordAttempt, type ProgressDoc } from '../services/storage';
 
 type Phase = 'ready' | 'folding' | 'folded' | 'cutting' | 'cut' | 'unfolding' | 'revealed';
@@ -41,6 +48,10 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
   const [hintLevel, setHintLevel] = useState(0);
   const [showDiff, setShowDiff] = useState(false);
   const [lastScore, setLastScore] = useState<ScoreResult | null>(null);
+  const [diag, setDiag] = useState<Diagnosis | null>(null);
+  const [nudges, setNudges] = useState(0);
+  const [showHowTo, setShowHowTo] = useState(true);
+  const [showTarget, setShowTarget] = useState(level.stage < 3);
   const [progress, setProgress] = useState<ProgressDoc>(() => loadProgress());
 
   const fold = useAnimatedValue(0);
@@ -48,6 +59,12 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
   const { show: toast, node: toastNode } = useToast();
 
   const result = useMemo(() => applyCuts(level.foldPreset, cuts), [level.foldPreset, cuts]);
+  // Live score for the always-on comparison card. One evaluation is ~4 ms on
+  // the eight-fold preset, so recomputing on every drag frame is affordable.
+  const liveScore = useMemo(
+    () => scorePaper(result.paper, level.target, level.thresholds),
+    [result, level],
+  );
   const active = Math.min(activeCut, cuts.length - 1);
   const cut = cuts[active];
 
@@ -61,9 +78,13 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
     setCuts(level.initialGuess);
     setActiveCut(0);
     setApplied(false);
-    setHintLevel(0);
+    // Stage 1 opens the observation hint by itself; later stages do not.
+    setHintLevel(level.stage === 1 ? 1 : 0);
     setShowDiff(false);
     setLastScore(null);
+    setDiag(null);
+    setNudges(0);
+    setShowTarget(level.stage < 3);
     fallSet(0);
     if (preset.steps.length === 0) {
       foldSet(1);
@@ -94,7 +115,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
     if (phase !== 'revealed') return;
     const s = scorePaper(result.paper, level.target, level.thresholds);
     setLastScore(s);
-    setProgress(recordAttempt(level.id, s.iou, s.verdict === 'perfect'));
+    setProgress(recordAttempt(level.id, s.iou, isCleared(s.verdict)));
   }, [phase, result, level]);
 
   const canPlay = phase === 'folded';
@@ -125,16 +146,32 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
   const handleRetry = () => {
     fallSet(0);
     setApplied(false);
-    setHintLevel(0);
+    // Stage 1 opens the observation hint by itself; later stages do not.
+    setHintLevel(level.stage === 1 ? 1 : 0);
     setShowDiff(false);
     setLastScore(null);
+    setDiag(null);
+    setNudges(0);
     foldSet(1);
     setPhase('folded');
+  };
+
+  const askDiagnosis = () => {
+    setDiag(diagnose(cuts, level.foldPreset, level.target, level.thresholds, active));
+  };
+
+  const takeNudge = () => {
+    if (!diag?.nudge) return;
+    setCuts((list) => applyNudge(list, diag.nudge!));
+    setNudges((n) => n + 1);
+    setDiag(null);
   };
 
   const handleResetCut = () => {
     setCuts(level.initialGuess);
     setActiveCut(0);
+    setDiag(null);
+    setNudges(0);
     toast('切线已回到初始位置');
   };
 
@@ -144,14 +181,23 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
 
   const nextLevel = LEVELS[level.index % LEVELS.length];
   const angle = Math.round(cutAngleDeg(cut) * 2) / 2;
+  // One label used everywhere, so the button and the instructions can never
+  // disagree about whether this level is "one cut" or "a bent cut".
+  const cutLabel =
+    level.cutCount > 1
+      ? `剪 ${level.cutCount} 刀`
+      : level.canonicalCuts[0]?.kind === 'notch'
+        ? '剪一剪'
+        : '剪一刀';
+  const nudgeBudget = level.stage === 3 ? 0 : 6;
 
   return (
     <>
       <div className="head-row">
         <div>
           <div className="kicker">
-            Level {String(level.index).padStart(2, '0')} · {preset.shortLabel} ·{' '}
-            {TIER_LABEL[level.tier]}
+            Level {String(level.index).padStart(2, '0')} · {level.stageLabel} ·{' '}
+            {preset.shortLabel} · {TIER_LABEL[level.tier]}
           </div>
           <h1 className="level-title">{level.title}</h1>
           <p className="muted" style={{ marginTop: 4 }}>
@@ -172,6 +218,55 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
       <p className="lede" style={{ maxWidth: 760, marginTop: 12 }}>
         {level.brief}
       </p>
+
+      <section className="howto" aria-label="操作说明">
+        <button
+          className="howto__head"
+          onClick={() => setShowHowTo((v) => !v)}
+          aria-expanded={showHowTo}
+        >
+          <span className="kicker">怎么玩 · 四步，不用猜</span>
+          <span className="howto__toggle">{showHowTo ? '收起' : '展开'}</span>
+        </button>
+        <p className="howto__stage">{STAGE_HINT[level.stage]}</p>
+        {showHowTo && (
+          <ol className="howto__list">
+            <li>
+              <b>选刀</b>
+              {level.cutCount > 1 ? (
+                <>
+                  ：用 <span className="mono">第 1 刀 / 第 2 刀</span> 标签页切换要编辑的切口；
+                  本关是「{level.cutSummary}」。
+                </>
+              ) : (
+                <>
+                  ：本关只有<b>一刀</b>（「{level.cutSummary}」），没有标签页要切。
+                </>
+              )}
+            </li>
+            <li>
+              <b>调参</b>：
+              {cut.kind === 'line'
+                ? '「角度 / 距中心 / 剪哪侧」三个控件，滑块松手即重算。'
+                : cut.kind === 'notch'
+                  ? '「方向 / 顶点距中心 / 张口宽度」三个滑块，松手即重算。'
+                  : '「形状 / 方位 / 距中心 / 半宽 / 长宽比 / 转角」，松手即重算。'}
+            </li>
+            <li>
+              <b>看差</b>：右侧「展开预览」边拖边比对；青色是<em>多剪</em>的纸，金色是<em>少剪</em>的纸，
+              虚线是目标轮廓。
+            </li>
+            <li>
+              <b>落刀</b>：按「{cutLabel}」→ 展开 → 看本刀评分。达标即可进下一关，
+              「完全匹配」只是额外的满分徽章。
+            </li>
+          </ol>
+        )}
+        <p className="howto__drag">
+          画布直接拖：直线拖两端圆点旋转、拖线身平移；折剪<strong>拖顶点改深度</strong>、
+          <strong>拖两臂改方向</strong>；镂空拖圆心改位置、拖轮廓改转角。
+        </p>
+      </section>
 
       <div className="puzzle">
         <div>
@@ -203,11 +298,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
               折叠
             </button>
             <button className="btn btn--primary" onClick={handleCut} disabled={!canCut}>
-              {level.cutCount > 1
-                ? `剪 ${level.cutCount} 刀`
-                : level.canonicalCuts[0]?.kind === 'notch'
-                  ? '剪一剪'
-                  : '剪一刀'}
+              {cutLabel}
             </button>
             <button className="btn btn--ghost" onClick={handleUnfold} disabled={phase !== 'cut'}>
               展开
@@ -245,6 +336,43 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
         <aside style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="card card--pad">
             <div className="panel-title">
+              <h3>展开预览</h3>
+              <span>
+                {formatPercent(liveScore.iou)} · {isCleared(liveScore.verdict) ? '已达标' : '未达标'}
+              </span>
+            </div>
+            <div className="target-frame">
+              <PaperStage
+                preset={preset}
+                outcome={result}
+                foldedness={0}
+                paperColor="#B93645"
+                accentColor="#D84A49"
+                showCreases={false}
+                noZoom
+                targetOutline={showTarget ? level.target : null}
+                diffExtra={showTarget ? liveScore.extra : null}
+                diffMissing={showTarget ? liveScore.missing : null}
+                ariaLabel="实时展开预览与目标对照"
+              />
+            </div>
+            <div className="btn-row" style={{ marginTop: 8 }}>
+              <button
+                className={`btn btn--sm ${showTarget ? 'btn--primary' : 'btn--ghost'}`}
+                onClick={() => setShowTarget((v) => !v)}
+                aria-pressed={showTarget}
+              >
+                对照目标
+              </button>
+              <span className="note">拖动滑块时实时更新</span>
+            </div>
+            <p className="note" style={{ marginTop: 6 }}>
+              青色 = 多剪的纸，金色 = 少剪的纸，金色虚线 = 目标轮廓。
+            </p>
+          </div>
+
+          <div className="card card--pad">
+            <div className="panel-title">
               <h3>目标图案</h3>
               <span>{formatPercent(level.targetArea / 4, 0)} 保留</span>
             </div>
@@ -263,9 +391,10 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
           <div className="card card--pad">
             <div className="panel-title">
               <h3>剪切参数</h3>
-              <button className="btn btn--quiet btn--sm" onClick={handleResetCut} disabled={!canPlay}>
-                重置
-              </button>
+              <span className="mono">
+                吻合 {formatPercent(liveScore.iou, 0)}
+                {isCleared(liveScore.verdict) ? ' ✓' : ''}
+              </span>
             </div>
 
             {level.cutCount > 1 && (
@@ -289,7 +418,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
               <>
                 <div className="control">
                   <div className="control__head">
-                    <span className="control__label">切线角度</span>
+                    <span className="control__label">角度</span>
                     <span className="control__value mono">{angle}°</span>
                   </div>
                   <input
@@ -308,7 +437,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
 
                 <div className="control">
                   <div className="control__head">
-                    <span className="control__label">距纸包中心</span>
+                    <span className="control__label">距中心</span>
                     <span className="control__value mono">{cut.offset.toFixed(2)}</span>
                   </div>
                   <input
@@ -403,8 +532,37 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
             <p className="note" style={{ marginTop: 6 }}>
               第 {active + 1} 刀：{describeCut(cut)}
               <br />
-              也可以直接在纸上拖动切线，或拖动两端的圆点旋转。
+              也可以直接在纸上拖动：拖线身平移、拖圆点旋转；折剪拖顶点改深度、拖两臂改方向。
             </p>
+
+            <div className="diag">
+              <div className="btn-row">
+                <button className="btn btn--ghost btn--sm" onClick={askDiagnosis} disabled={!canPlay}>
+                  差在哪？
+                </button>
+                <button
+                  className="btn btn--quiet btn--sm"
+                  onClick={handleResetCut}
+                  disabled={!canPlay}
+                >
+                  重置
+                </button>
+                {diag?.nudge && nudges < nudgeBudget && (
+                  <button className="btn btn--primary btn--sm" onClick={takeNudge}>
+                    按建议调整（{nudges}/{nudgeBudget}）
+                  </button>
+                )}
+              </div>
+              {diag && (
+                <div className="diag__box" role="status" aria-live="polite">
+                  <strong>{diag.headline}</strong>
+                  <p>{diag.detail}</p>
+                  {level.stage === 3 && (
+                    <p className="note">阶段 3 不提供一键微调，请按方向自己调。</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {phase === 'revealed' && lastScore && (
@@ -418,28 +576,43 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
                 <div className="verdict__text">
                   <strong>{VERDICT_LABEL[lastScore.verdict]}</strong>
                   <span className="muted">
-                    {lastScore.verdict === 'perfect'
-                      ? '在容差内与目标完全一致。'
-                      : lastScore.verdict === 'close'
-                        ? '很接近了，再调一点点。'
-                        : '还差得比较多，看看差异区域。'}
+                    {lastScore.verdict === 'exact'
+                      ? '在容差内与目标完全一致，满分。'
+                      : lastScore.verdict === 'pass'
+                        ? '已达到本关要求，可以进下一关。'
+                        : lastScore.verdict === 'near'
+                          ? '形状接近了，还差一点。'
+                          : '还差得比较多，先看「差在哪？」。'}
                   </span>
                 </div>
               </div>
+
               <div className="metrics">
                 <div className="metric">
                   <div className="metric__label">IoU</div>
                   <div className="metric__value">{formatPercent(lastScore.iou)}</div>
                 </div>
                 <div className="metric">
-                  <div className="metric__label">对称差</div>
-                  <div className="metric__value">{formatPercent(lastScore.symmetricRatio)}</div>
+                  <div className="metric__label">本关达标线</div>
+                  <div className="metric__value">{formatPercent(level.thresholds.passIou, 0)}</div>
                 </div>
                 <div className="metric">
                   <div className="metric__label">实得面积</div>
                   <div className="metric__value">{lastScore.actualArea.toFixed(2)}</div>
                 </div>
               </div>
+
+              {!isCleared(lastScore.verdict) && (
+                <p className="verdict__gap">
+                  还差 <b>{(lastScore.gap * 100).toFixed(1)}</b> 个点到达标线。
+                  {lastScore.actualArea > lastScore.targetArea
+                    ? '留下的纸比目标多，说明剪少了。'
+                    : lastScore.actualArea < lastScore.targetArea
+                      ? '留下的纸比目标少，说明剪多了。'
+                      : '面积对了，位置还差一点。'}
+                </p>
+              )}
+
               <div className="btn-row" style={{ marginTop: 12 }}>
                 <button
                   className={`btn btn--sm ${showDiff ? 'btn--primary' : 'btn--ghost'}`}
@@ -451,7 +624,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
                 <button className="btn btn--ghost btn--sm" onClick={handleRetry}>
                   再来一次
                 </button>
-                {lastScore.verdict === 'perfect' && (
+                {isCleared(lastScore.verdict) && (
                   <button
                     className="btn btn--primary btn--sm"
                     onClick={() => navigate(`/puzzle/${nextLevel.id}`)}
@@ -462,6 +635,8 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
               </div>
               <p className="note" style={{ marginTop: 10 }}>
                 青色 = 多剪的纸，金色 = 少剪的纸；金色虚线是目标轮廓。
+                达标线按阶段放宽（{formatPercent(level.thresholds.passIou, 0)}），
+                「完全匹配」是额外的满分徽章，不是通关条件。
               </p>
             </div>
           )}

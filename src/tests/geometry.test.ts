@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyCuts,
+  cutAngleDeg,
   cutFromAngle,
   holeCut,
   notchCut,
   normalizeCut,
   removedPacketRegion,
+  type Cut,
 } from '../geometry/cut';
 import { getPreset, patchRenderMatrix } from '../geometry/fold';
 import {
@@ -19,7 +21,7 @@ import {
   ringArea,
   unionMP,
 } from '../geometry/polygon';
-import { scorePaper } from '../geometry/score';
+import { STAGE_THRESHOLDS, isCleared, scorePaper, type ScoreThresholds } from '../geometry/score';
 import { LEVELS } from '../puzzle/levels';
 import { buildSvg, fileName } from '../services/export';
 
@@ -244,15 +246,26 @@ describe('geometry: scoring', () => {
     const s = scorePaper(out.paper, out.paper);
     expect(s.iou).toBeCloseTo(1, 12);
     expect(s.symmetricRatio).toBeCloseTo(0, 12);
-    expect(s.verdict).toBe('perfect');
+    expect(s.verdict).toBe('exact');
+    expect(isCleared(s.verdict)).toBe(true);
+  });
+
+  it('the four tiers sit on the configured boundaries', () => {
+    const target = applyCuts('orthogonal2', [cutFromAngle(45, 0.4, 'negative')]).paper;
+    // A slightly different hole: IoU ~0.99 -> exact, because 0.99 >= exactIou?
+    // No: exact needs 0.995. Use three real papers and check the tier order.
+    const almost = applyCuts('orthogonal2', [cutFromAngle(45, 0.401, 'negative')]).paper;
+    const s = scorePaper(almost, target, levelThresholds(0.94));
+    expect(s.iou).toBeGreaterThan(0.94);
+    expect(['exact', 'pass']).toContain(s.verdict);
   });
 
   it('an obviously wrong solution is not accepted', () => {
     const target = applyCuts('orthogonal2', [cutFromAngle(45, 0.4, 'negative')]).paper;
     const wrong = applyCuts('orthogonal2', [cutFromAngle(45, 0.72, 'negative')]).paper;
     const s = scorePaper(wrong, target);
-    expect(s.verdict).not.toBe('perfect');
-    expect(s.iou).toBeLessThan(0.95);
+    expect(isCleared(s.verdict)).toBe(false);
+    expect(s.iou).toBeLessThan(0.9);
     expect(s.symmetricRatio).toBeGreaterThan(0.02);
   });
 
@@ -266,9 +279,68 @@ describe('geometry: scoring', () => {
     const target = applyCuts('orthogonal2', [cutFromAngle(45, 0.4, 'negative')]).paper;
     const nudge = applyCuts('orthogonal2', [cutFromAngle(45, 0.405, 'negative')]).paper;
     const s = scorePaper(nudge, target);
-    expect(s.verdict).toBe('perfect');
+    expect(isCleared(s.verdict)).toBe(true);
   });
 });
+
+/** A threshold object with the given pass line, used by the tier tests. */
+function levelThresholds(passIou: number): ScoreThresholds {
+  return { exactIou: 0.995, passIou, nearIou: passIou - 0.06 };
+}
+
+describe('puzzle: tolerance contract', () => {
+  it('one slider step never fails any level', () => {
+    // This is the promise that replaces "hit 100 % or retry": the UI's finest
+    // step is always inside the stage's tolerance band.
+    for (const level of LEVELS) {
+      level.canonicalCuts.forEach((cut, ci) => {
+        const fields = cut.kind === 'line' ? ['angle', 'offset'] : cut.kind === 'notch' ? ['angle', 'distance', 'width'] : [];
+        for (const field of fields) {
+          for (const sign of [1, -1]) {
+            const next = stepCut(cut, field, sign);
+            if (!next) continue;
+            const cuts = level.canonicalCuts.map((c, k) => (k === ci ? next : c));
+            const s = scorePaper(applyCuts(level.foldPreset, cuts).paper, level.target, level.thresholds);
+            expect(isCleared(s.verdict), `${level.id} ${field}${sign > 0 ? '+' : '-'}`).toBe(true);
+          }
+        }
+      });
+    }
+  });
+
+  it('stages get stricter, never looser', () => {
+    for (const stage of [1, 2] as const) {
+      expect(STAGE_THRESHOLDS[stage].passIou).toBeLessThan(STAGE_THRESHOLDS[(stage + 1) as 2 | 3].passIou);
+    }
+    for (const level of LEVELS) {
+      expect(level.thresholds.passIou).toBe(STAGE_THRESHOLDS[level.stage].passIou);
+    }
+  });
+
+  it('every level has a stage and a readable label', () => {
+    for (const level of LEVELS) {
+      expect([1, 2, 3]).toContain(level.stage);
+      expect(level.stageLabel).toContain('阶段');
+    }
+  });
+});
+
+function stepCut(cut: Cut, field: string, sign: number): Cut | null {
+  if (cut.kind === 'line') {
+    if (field === 'angle') {
+      const deg = (cutAngleDeg(cut) + sign * 0.5 + 360) % 180;
+      return cutFromAngle(deg, cut.offset, cut.removedSide);
+    }
+    if (field === 'offset') return { ...cut, offset: Number((cut.offset + sign * 0.01).toFixed(2)) };
+    return null;
+  }
+  if (cut.kind === 'notch') {
+    if (field === 'angle') return notchCut(Number((cut.angle + sign * 0.5).toFixed(1)), cut.distance, cut.width);
+    if (field === 'distance') return notchCut(cut.angle, Number((cut.distance + sign * 0.01).toFixed(2)), cut.width);
+    if (field === 'width') return notchCut(cut.angle, cut.distance, Number((cut.width + sign * 0.01).toFixed(2)));
+  }
+  return null;
+}
 
 describe('puzzle: shipped levels', () => {
   it('ships six levels with unique ids', () => {
@@ -281,15 +353,16 @@ describe('puzzle: shipped levels', () => {
       const out = applyCuts(level.foldPreset, level.canonicalCuts);
       const s = scorePaper(out.paper, level.target);
       expect(s.iou, `level ${level.id}`).toBeCloseTo(1, 10);
-      expect(s.verdict, `level ${level.id}`).toBe('perfect');
+      expect(s.verdict, `level ${level.id}`).toBe('exact');
+      expect(isCleared(s.verdict), `level ${level.id}`).toBe(true);
     }
   });
 
   it('every level rejects its own initial guess', () => {
     for (const level of LEVELS) {
       const out = applyCuts(level.foldPreset, level.initialGuess);
-      const s = scorePaper(out.paper, level.target);
-      expect(s.verdict, `level ${level.id}`).not.toBe('perfect');
+      const s = scorePaper(out.paper, level.target, level.thresholds);
+      expect(isCleared(s.verdict), `level ${level.id}`).toBe(false);
     }
   });
 

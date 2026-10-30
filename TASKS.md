@@ -26,6 +26,10 @@
 | REQ-GAME-003 | 三类渐进提示 | P1 | 已完成 | `levels.ts` `hints{observe,operate,solution}` | 手动检查（提示按钮循环 0→3 级） | — |
 | REQ-GAME-004 | 移动端触控与布局 | P0 | 已完成 | `styles/index.css` 断点、`touch-action:none` | `mobile: no horizontal overflow`、`mobile: puzzle stage width fits`（358px） | 真机未测，仅 390px 视口 |
 | REQ-GAME-005 | 进度与最佳成绩 | P2 | 已完成 | `services/storage.ts` `recordAttempt` | 通关后「已通关」chip 与首页计数 | — |
+| REQ-GAME-006 | 分级判定与容差（exact/pass/near/miss，92/94/96%） | P0 | 已完成 | `geometry/score.ts`、`puzzle/levels.ts` `STAGE_THRESHOLDS` | `one slider step never fails any level`（6 关 × 全参数 × ±1 格）；`stages get stricter` | 达标线按阶段，见 `docs/UX_REDESIGN.md` §4 |
+| REQ-GAME-007 | 「差在哪？」单参数诊断 + 6 次一键微调 | P0 | 已完成 | `puzzle/assist.ts`、`pages/PuzzlePage.tsx` `.diag` | `assist.test.ts` 5 例：找得到、照做变好、文案含滑块名、6 次收敛、步进不越界 | 只搜单参数（2D 组合不搜） |
+| REQ-GAME-008 | 实时展开对照（预览 + 目标轮廓 + 差异区） | P0 | 已完成 | `pages/PuzzlePage.tsx`「展开预览」卡、`PaperStage` | `puzzle: live preview card exists`、`live IoU readout exists`；实测 3.4–3.8 ms/次 | 主画布不叠（坐标系不同） |
+| REQ-UI-002 | 操作说明条（四步）与文案一致性 | P0 | 已完成 | `pages/PuzzlePage.tsx` `.howto`；`cutLabel`/`cutSummary` 单一来源 | `puzzle: how-to strip is on screen`、`how-to names both cut tabs and sliders`、`diagnosis names a slider` | — |
 | REQ-GAME-006 | 评分卡无需滚动即可见 | P0 | 已完成 | `.score-card { order: -1 }` | `puzzle: score card visible without scrolling` | 视觉顺序先于 DOM 顺序（已注释权衡） |
 
 ## 三、工坊与作品（Milestone 3）
@@ -59,7 +63,7 @@
 | REQ-DOC-002 | 任务追踪与里程碑记录 | P0 | 已完成 | 本文件 + `PROJECT_STATUS.md` | 提交表含真实 SHA | — |
 | REQ-BRAND-001 | 品牌统一 | P0 | 已完成 | `index.html`、`public/favicon.svg`、各页文案 | 首页 title 断言 | — |
 | REQ-QA-001 | 单元测试 | P0 | 已完成 | `src/tests/{geometry,ai}.test.ts` | `72 passed | 1 skipped`（几何 43 / AI 29） | — |
-| REQ-QA-002 | 浏览器端验证 | P1 | 已完成 | `tools/ui_check.py`、`tools/ai_check.py` | 主流程 `23/23`（本地+线上）、AI `13/13`，`console issues: 0` | 仅 Chromium 内核 |
+| REQ-QA-002 | 浏览器端验证 | P1 | 已完成 | `tools/ui_check.py`、`tools/ai_check.py` | 主流程 `37/37`、AI `14/14`，`console issues: 0`（本地与线上各一轮） | 仅 Chromium 内核 |
 | REQ-QA-003 | 真实模型调用验证 | P0 | 已完成 | `src/tests/ai.live.test.ts`（默认 skip） | `FOLDYSSEY_LIVE_AI=1` 时通过，输出合法 JSON 并渲染 | 每次消耗一次额度 |
 
 ## 五、明确不做（不适用）

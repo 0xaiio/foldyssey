@@ -9,7 +9,7 @@ Foldyssey 是一座可以玩的数字折剪纸实验室：选一种折叠、拖�
 - **在线体验**：见 [submission/publish_verification.md](submission/publish_verification.md)（发布后填写）
 - **技术栈**：React 18 + TypeScript + Vite + SVG + `polygon-clipping` + `zod` +
   `@tencent-ai/workbuddy-cloud-sdk`（运行时模型）+ Vitest
-- **定位**：WorkBuddy「1024 造物挑战」参赛作品 · v0.4.0
+- **定位**：WorkBuddy「1024 造物挑战」参赛作品 · v0.5.0
 
 ---
 
@@ -27,14 +27,15 @@ S = ⋃ᵢ ( Pᵢ \ fᵢ⁻¹( D ∩ fᵢ(Pᵢ) ) )
 
 ---
 
-## 已实现（v0.4.0）
+## 已实现（v0.5.0）
 
 | 能力 | 状态 |
 |---|---|
 | 五种折叠预设：不折 / 竖折 / 横折 / 正交双折 / **团花八折（D4，8 层）** | 已实现并测试 |
 | 四种切割原语：**直线**（半平面）/ **折剪**（V 形）/ **镂空**（闭合孔）/ **锯齿**（边缘齿排） | 已实现并测试 |
 | 6 个由正向构造生成的原创关卡（3 关一刀直线 + 3 关八折团花），每关都有可复现的标准解 | 已实现并测试 |
-| 几何评分（IoU + 对称差 + 差异覆盖可视化） | 已实现并测试 |
+| 几何评分（IoU 四档判定、按阶段容差、差异覆盖可视化） | 已实现并测试 |
+| **「差在哪？」诊断 + 实时展开对照**：告诉玩家调哪个滑块，边拖边看差异 | 已实现并测试 |
 | 剪纸工坊（最多 3 条切口，可编辑直线 / 折剪 / 镂空，配色、撤销/重做、实时双视图） | 已实现 |
 | SVG / PNG 导出、localStorage 作品集 | 已实现 |
 | 折叠 / 剪切 / 展开动画、移动端触控 | 已实现 |
@@ -53,7 +54,7 @@ AI 只挑选参数，不生成图片；越界的枚举与数值会被映射或�
 ```bash
 npm install          # Node >= 18
 npm run dev          # 本地开发 http://127.0.0.1:5173
-npm run test         # 几何 / 关卡 / 导出 / AI 校验单元测试（72 passed）
+npm run test         # 几何 / 关卡 / 判定 / 诊断 / AI 校验单元测试（81 passed）
 npm run typecheck    # tsc --noEmit
 npm run build        # 生产构建到 dist/
 npm run preview      # 预览生产包
