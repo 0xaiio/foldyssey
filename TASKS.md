@@ -9,7 +9,7 @@
 | ID | 任务 / 验收条件 | 优先级 | 状态 | 实现文件 / 思路 | 验证证据 | 遗留 |
 |---|---|---|---|---|---|---|
 | REQ-GEO-001 | 纸张模型 `P=[-1,1]²`、片区等距变换、逆变换 | P0 | 已完成 | `geometry/polygon.ts`（`Mat`/`applyMat`）、`geometry/fold.ts` | `each patch transform is an isometry and its own inverse` | — |
-| REQ-GEO-002 | 四种合法折叠预设 | P0 | 已完成 | `geometry/fold.ts` `FOLD_PRESETS` | `orthogonal double fold with no cut unfolds back to the full square` | 仅四种，斜折未做 |
+| REQ-GEO-002 | 五种合法折叠预设（含八折团花） | P0 | 已完成 | `geometry/fold.ts` `FOLD_PRESETS`、通用折痕矩阵 | `the fold animation ends exactly at each patch forward map`、`radial8 patches tile the square exactly once` | 无斜折，8 层是正方形的上限 |
 | REQ-GEO-003 | 一刀 = 半平面，逐层逆映射 | P0 | 已完成 | `geometry/cut.ts` `applyCuts` + `removedPacketRegion` | `every patch loses its own mirrored copy of the cut` | — |
 | REQ-GEO-004 | 黄金样例：中心菱形 | P0 | 已完成 | 同上，参数 `45°/0.40/negative` | `removes a diamond of area 2d^2…`、`the hole is the set｜x｜+｜y｜< d`、`invariant under both axis reflections` | — |
 | REQ-GEO-005 | 退化输入不崩溃 | P0 | 已完成 | `normalizeCut` 返回 `null`；`clip.ts` try/catch；面积阈值过滤 | `degenerate normals and non-finite values are rejected without crashing` | — |
@@ -21,7 +21,7 @@
 
 | ID | 任务 | 优先级 | 状态 | 实现 | 验证 | 遗留 |
 |---|---|---|---|---|---|---|
-| REQ-GAME-001 | 6 个原创关卡，目标由标准解生成 | P1 | 已完成 | `puzzle/levels.ts` `buildLevel()` | `ships six levels`、`every level can be solved by its canonical solution`、`every level rejects its own initial guess` | — |
+| REQ-GAME-001 | 6 个原创关卡（3 关一刀 + 3 关八折团花） | P1 | 已完成 | `puzzle/levels.ts` `buildLevel()` | `ships six levels`、`every level can be solved by its canonical solution`、`levels are visually distinct` | — |
 | REQ-GAME-002 | 折叠 / 剪 / 展开 / 重试 / 提示 | P0 | 已完成 | `pages/PuzzlePage.tsx` 状态机 | 浏览器验证 `canonical solution clears the level`（100% IoU） | — |
 | REQ-GAME-003 | 三类渐进提示 | P1 | 已完成 | `levels.ts` `hints{observe,operate,solution}` | 手动检查（提示按钮循环 0→3 级） | — |
 | REQ-GAME-004 | 移动端触控与布局 | P0 | 已完成 | `styles/index.css` 断点、`touch-action:none` | `mobile: no horizontal overflow`、`mobile: puzzle stage width fits`（358px） | 真机未测，仅 390px 视口 |

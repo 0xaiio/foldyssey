@@ -199,9 +199,25 @@ def main() -> int:
         "set.call(r,'0.52');r.dispatchEvent(new Event('input',{bubbles:true}));return true})()"
     )
     time.sleep(0.4)
+
     check("puzzle: slider changes the offset readout",
           "0.52" in (cdp.eval("document.body.innerText") or ""),
           str(cdp.eval("document.body.innerText") or "")[:0])
+
+    # --- 八折团花关：多切口 + 折剪面板 ---
+    cdp.eval("location.hash = '#/puzzle/rosette'")
+    cdp.wait_for("document.body.innerText.includes('团花')", 10, "rosette")
+    time.sleep(1.6)
+    tabs = cdp.eval("document.querySelectorAll('.cut-tab').length")
+    check("rosette: two cut tabs", (tabs or 0) == 2, str(tabs))
+    cdp.eval("[...document.querySelectorAll('.cut-tab')].at(-1)?.click()")
+    time.sleep(0.5)
+    notch_ui = cdp.eval("!!document.querySelector(\"input[aria-label='折剪方向（度）']\")")
+    check("rosette: notch panel appears for the bent cut", bool(notch_ui))
+    check("rosette: petal target renders",
+          (cdp.eval("document.querySelectorAll('.target-frame svg path').length") or 0) >= 1,
+          str(cdp.eval("document.querySelectorAll('.target-frame svg path').length")))
+    cdp.shot("12-rosette-level.png")
     cdp.shot("04-puzzle-adjusted.png")
 
     # ---- studio ----
@@ -284,8 +300,8 @@ def main() -> int:
         "Emulation.setEmulatedMedia",
         {"features": [{"name": "prefers-reduced-motion", "value": "reduce"}]},
     )
-    cdp.eval("location.hash = '#/puzzle/roof'")
-    cdp.wait_for("document.body.innerText.includes('一刀终章')", 8, "reduced-motion puzzle")
+    cdp.eval("location.hash = '#/puzzle/grand-rosette'")
+    cdp.wait_for("document.body.innerText.includes('万象团花')", 8, "reduced-motion puzzle")
     time.sleep(0.9)
     check("reduced motion: puzzle still renders",
           (cdp.eval("document.querySelectorAll('.stage-card svg path').length") or 0) >= 4,

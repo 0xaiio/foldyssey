@@ -222,7 +222,9 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
                 foldedness={fold.value}
                 cut={activeCut}
                 showCutLine
-                onCutChange={(c) => updateCut(Math.min(active, state.cuts.length - 1), c)}
+                onCutChange={(c) => {
+                  if (c.kind === 'line') updateCut(Math.min(active, state.cuts.length - 1), c);
+                }}
                 paperColor={state.style.paper}
                 accentColor="#D84A49"
                 showCreases

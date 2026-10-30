@@ -11,6 +11,9 @@
 | 4 | `screenshots/04-studio.png` | 工坊：左纸包 / 右展开预览 / 参数与配色 | 创作能力 | 1440×980 |
 | 5 | `screenshots/05-mobile-home.png` | 手机首页（390px） | 移动端适配 | 390×844 |
 | 6 | `screenshots/06-mobile-puzzle.png` | 手机关卡页（390px） | 移动端适配 | 390×844 |
+| 7 | `screenshots/07-pattern-octagram.png` | 第 4 关「八角星」目标：八道放射尖角（八折 + 折剪） | 图案复杂度 | 750×750 |
+| 8 | `screenshots/08-pattern-rosette.png` | 第 5 关「团花」目标：八边形花心 + 八瓣 | 核心卖点 | 750×750 |
+| 9 | `screenshots/09-pattern-grand-rosette.png` | 第 6 关「万象团花」：花心 + 八主瓣 + 四轴次瓣 | 最强图案 | 750×750 |
 
 补充素材（未放入提交目录，仓库内可查）：
 

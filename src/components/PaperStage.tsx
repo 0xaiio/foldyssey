@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import type { CutOutcome, StraightCut } from '../geometry/cut';
-import { CUT_OFFSET_LIMIT } from '../geometry/cut';
+import type { Cut, CutOutcome } from '../geometry/cut';
+import { CUT_OFFSET_LIMIT, NOTCH_REACH, clipRayToRing, normalizeCut } from '../geometry/cut';
 import { type FoldPreset, patchRenderMatrix } from '../geometry/fold';
 import { type MultiPolygon, multiPolygonBounds, multiPolygonToPath } from '../geometry/polygon';
 import { type Vec2, clamp } from '../geometry/vec';
@@ -14,11 +14,11 @@ export type PaperStageProps = {
   preset: FoldPreset;
   outcome: CutOutcome;
   foldedness: number;
-  cut?: StraightCut | null;
+  cut?: Cut | null;
   showCutLine?: boolean;
   /** Region that will be removed, in packet coordinates (preview before cutting). */
   previewRemoved?: MultiPolygon | null;
-  onCutChange?: (cut: StraightCut) => void;
+  onCutChange?: (cut: Cut) => void;
   paperColor?: string;
   accentColor?: string;
   showCreases?: boolean;
@@ -121,6 +121,23 @@ export function PaperStage({
   const applyDrag = useCallback(
     (p: Vec2, mode: DragMode) => {
       if (!onCutChange || !cut || !mode) return;
+
+      if (cut.kind === 'notch') {
+        const rad = (cut.angle * Math.PI) / 180;
+        const u = { x: Math.cos(rad), y: Math.sin(rad) };
+        if (mode === 'translate') {
+          const projected = u.x * p.x + u.y * p.y;
+          onCutChange({ ...cut, distance: clamp(projected, 0, CUT_OFFSET_LIMIT) });
+        } else {
+          const dx = p.x - pivot.x;
+          const dy = p.y - pivot.y;
+          if (Math.hypot(dx, dy) < 1e-6) return;
+          const deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+          onCutChange({ ...cut, angle: ((deg % 180) + 180) % 180 });
+        }
+        return;
+      }
+
       if (mode === 'translate') {
         const projected = cut.nx * p.x + cut.ny * p.y;
         onCutChange({ ...cut, offset: clamp(projected, -CUT_OFFSET_LIMIT, CUT_OFFSET_LIMIT) });
@@ -134,10 +151,11 @@ export function PaperStage({
       const ny = Math.sin(phi);
       const distance = cut.offset - (cut.nx * pivot.x + cut.ny * pivot.y);
       const offset = nx * pivot.x + ny * pivot.y + distance;
-      const next: StraightCut = { ...cut, nx, ny, offset };
+      const next = { ...cut, nx, ny, offset };
       const a = Math.atan2(next.ny, next.nx);
       if (a < 0) {
         onCutChange({
+          kind: 'line',
           nx: -next.nx,
           ny: -next.ny,
           offset: -next.offset,
@@ -185,16 +203,59 @@ export function PaperStage({
 
   const cutGeom = useMemo(() => {
     if (!cut) return null;
-    const t = { x: -cut.ny, y: cut.nx };
-    const center = { x: cut.nx * cut.offset, y: cut.ny * cut.offset };
+    const norm = normalizeCut(cut);
+    if (!norm) return null;
+    const r = view.w * 0.028;
+    const hit = view.w * 0.075;
+
+    if (norm.kind === 'notch') {
+      const rad = (norm.angle * Math.PI) / 180;
+      const u = { x: Math.cos(rad), y: Math.sin(rad) };
+      const per = { x: -u.y, y: u.x };
+      const apex = { x: u.x * norm.distance, y: u.y * norm.distance };
+      const half = norm.width / 2;
+      const armDir = (sgn: number) => {
+        const target = {
+          x: apex.x - u.x * NOTCH_REACH + per.x * half * sgn,
+          y: apex.y - u.y * NOTCH_REACH + per.y * half * sgn,
+        };
+        const len = Math.hypot(target.x - apex.x, target.y - apex.y) || 1;
+        const dir = { x: (target.x - apex.x) / len, y: (target.y - apex.y) / len };
+        const t = Math.min(clipRayToRing(preset.packet, apex, dir), NOTCH_REACH);
+        return { x: apex.x + dir.x * t, y: apex.y + dir.y * t };
+      };
+      const left = armDir(1);
+      const right = armDir(-1);
+      return {
+        segments: [
+          { a: apex, b: left },
+          { a: apex, b: right },
+        ],
+        handles: [
+          { p: apex, role: 'translate' as const },
+          { p: left, role: 'rotate' as const },
+          { p: right, role: 'rotate' as const },
+        ],
+        r,
+        hit,
+      };
+    }
+
+    const t = { x: -norm.ny, y: norm.nx };
+    const center = { x: norm.nx * norm.offset, y: norm.ny * norm.offset };
     const L = view.w * 0.42;
+    const a = { x: center.x - t.x * L, y: center.y - t.y * L };
+    const b = { x: center.x + t.x * L, y: center.y + t.y * L };
     return {
-      a: { x: center.x - t.x * L, y: center.y - t.y * L },
-      b: { x: center.x + t.x * L, y: center.y + t.y * L },
-      r: view.w * 0.028,
-      hit: view.w * 0.075,
+      segments: [{ a, b }],
+      handles: [
+        { p: a, role: 'rotate' as const },
+        { p: b, role: 'rotate' as const },
+      ],
+      r,
+      hit,
     };
-  }, [cut, view.w]);
+  }, [cut, view.w, preset.packet]);
 
   const flapStroke = smoothstep(0.06, 0.3, foldedness);
   const silhouette = 1 - smoothstep(0.02, 0.22, foldedness);
@@ -392,31 +453,35 @@ export function PaperStage({
 
         {showCutLine && cutGeom && (
           <g>
-            <line
-              x1={cutGeom.a.x}
-              y1={cutGeom.a.y}
-              x2={cutGeom.b.x}
-              y2={cutGeom.b.y}
-              stroke="#FFFDF7"
-              strokeWidth={cutGeom.r * 1.5}
-              strokeLinecap="round"
-              opacity={0.85}
-            />
-            <line
-              x1={cutGeom.a.x}
-              y1={cutGeom.a.y}
-              x2={cutGeom.b.x}
-              y2={cutGeom.b.y}
-              stroke={accentColor}
-              strokeWidth={cutGeom.r * 0.62}
-              strokeLinecap="round"
-            />
-            {[cutGeom.a, cutGeom.b].map((pt, i) => (
-              <g key={`handle-${i}`} data-cut-role="rotate" style={{ cursor: 'grab' }}>
-                <circle cx={pt.x} cy={pt.y} r={cutGeom.hit} fill="transparent" />
+            {cutGeom.segments.map((seg, i) => (
+              <g key={`cut-seg-${i}`}>
+                <line
+                  x1={seg.a.x}
+                  y1={seg.a.y}
+                  x2={seg.b.x}
+                  y2={seg.b.y}
+                  stroke="#FFFDF7"
+                  strokeWidth={cutGeom.r * 1.5}
+                  strokeLinecap="round"
+                  opacity={0.85}
+                />
+                <line
+                  x1={seg.a.x}
+                  y1={seg.a.y}
+                  x2={seg.b.x}
+                  y2={seg.b.y}
+                  stroke={accentColor}
+                  strokeWidth={cutGeom.r * 0.62}
+                  strokeLinecap="round"
+                />
+              </g>
+            ))}
+            {cutGeom.handles.map((hnd, i) => (
+              <g key={`cut-handle-${i}`} data-cut-role={hnd.role} style={{ cursor: 'grab' }}>
+                <circle cx={hnd.p.x} cy={hnd.p.y} r={cutGeom.hit} fill="transparent" />
                 <circle
-                  cx={pt.x}
-                  cy={pt.y}
+                  cx={hnd.p.x}
+                  cy={hnd.p.y}
                   r={cutGeom.r}
                   fill="#FFFDF7"
                   stroke={accentColor}
