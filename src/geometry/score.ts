@@ -47,10 +47,12 @@ export const DEFAULT_THRESHOLDS: ScoreThresholds = {
 };
 
 /** Per-stage budgets, from "learn the controls" to "read the pattern". */
-export const STAGE_THRESHOLDS: Record<1 | 2 | 3, ScoreThresholds> = {
+export const STAGE_THRESHOLDS: Record<1 | 2 | 3 | 4, ScoreThresholds> = {
   1: { exactIou: 0.995, passIou: 0.92, nearIou: 0.85 },
   2: { exactIou: 0.995, passIou: 0.94, nearIou: 0.88 },
   3: { exactIou: 0.995, passIou: 0.96, nearIou: 0.9 },
+  // Stage 4 is harder because of the pattern, not because of the tolerance.
+  4: { exactIou: 0.995, passIou: 0.96, nearIou: 0.9 },
 };
 
 export const isCleared = (verdict: Verdict): boolean => verdict === 'exact' || verdict === 'pass';
@@ -86,8 +88,19 @@ export function scorePaper(
   const actualArea = multiPolygonArea(actual);
   const targetArea = multiPolygonArea(target);
   const inter = intersectMP(actual, target);
-  const intersectionArea = multiPolygonArea(inter);
   const unionArea = multiPolygonArea(unionMP(actual, target));
+
+  // `polygon-clipping` can throw (and we turn that into an empty result) when a
+  // ring becomes numerically degenerate — a sawtooth diamond nudged by half a
+  // degree is enough. An empty intersection would report IoU = 0 for two nearly
+  // identical sheets, so fall back to the area identity:
+  //     area(A ∩ T) = area(A) + area(T) − area(A ∪ T)
+  // and clamp it into the range the value must have.
+  let intersectionArea = multiPolygonArea(inter);
+  if (inter.length === 0 && actualArea > 1e-9 && targetArea > 1e-9) {
+    const byArea = actualArea + targetArea - unionArea;
+    intersectionArea = Math.max(0, Math.min(byArea, actualArea, targetArea));
+  }
 
   const iou =
     unionArea < 1e-12 ? (actualArea < 1e-12 && targetArea < 1e-12 ? 1 : 0) : intersectionArea / unionArea;

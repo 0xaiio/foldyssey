@@ -183,6 +183,36 @@ export function holeOutline(cut: HoleCut): Ring {
   return ring;
 }
 
+/**
+ * A row of sawteeth along the packet edge.
+ *
+ * Each tooth is a diamond whose centre sits exactly on the edge: half of it is
+ * outside the paper, so what remains is a triangular bite. Under an n-fold
+ * preset this becomes `n × count` teeth. Shared by the AI element mapping and
+ * by hand-authored levels so both produce identical geometry.
+ */
+export function sawtoothCuts(
+  preset: FoldPreset,
+  count: number,
+  depth: number,
+  pitch: number,
+  phase = 0,
+): HoleCut[] {
+  const span = preset.id === 'radial8' ? 45 : 180;
+  const n = Math.max(1, Math.min(8, Math.round(count)));
+  const out: HoleCut[] = [];
+  for (let i = 0; i < n; i++) {
+    const angle = phase + ((i + 0.5) * span) / n;
+    const rad = (angle * Math.PI) / 180;
+    const rim = clipRayToRing(preset.packet, { x: 0, y: 0 }, { x: Math.cos(rad), y: Math.sin(rad) });
+    if (!Number.isFinite(rim)) continue;
+    const d = Math.max(0.04, Math.min(0.5, depth));
+    const half = Math.max(0.012, pitch / 2);
+    out.push(holeCut('diamond', angle, rim, d, half / d, angle));
+  }
+  return out;
+}
+
 export function normalizeCut(cut: Cut | null | undefined): Cut | null {
   if (!cut) return null;
   // Documents saved before v0.3 stored straight cuts without a `kind` field.

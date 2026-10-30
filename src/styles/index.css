@@ -1637,3 +1637,346 @@ input[type='range']::-moz-range-thumb {
   color: var(--ink);
   font-size: 15px;
 }
+
+/* ---------- pattern library ---------- */
+
+.library__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 18px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+.filter-chip span {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+.filter-chip:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.filter-chip.is-active {
+  border-color: var(--red);
+  background: rgba(185, 54, 69, 0.08);
+  color: var(--red);
+  font-weight: 600;
+}
+
+.filter-chip.is-active span {
+  color: var(--red);
+}
+
+.library {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.library__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.pattern-grid {
+  /* Flat 3-column grid: 11 cards fill 3 + 3 + 3 + 2, so there is at most one
+     empty slot and the section stays compact enough for the home page. */
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.pattern-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--paper-bright);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.pattern-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(185, 54, 69, 0.35);
+  box-shadow: 0 18px 32px -28px rgba(36, 39, 37, 0.8);
+}
+
+.pattern-card.is-selected {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px rgba(185, 54, 69, 0.18), 0 18px 32px -28px rgba(36, 39, 37, 0.8);
+}
+
+.pattern-card__art {
+  display: block;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  background: radial-gradient(120% 100% at 30% 0%, #fffdf7, #f2e9d9);
+  padding: 8px;
+}
+
+.pattern-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pattern-card__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pattern-card__meta {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pattern-card__stage {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 253, 247, 0.92);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+
+.pattern-card__stamp {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(55, 140, 134, 0.14);
+  color: var(--teal);
+  font-size: 10.5px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+.library__detail {
+  position: sticky;
+  top: 86px;
+}
+
+.detail-card {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--paper-bright);
+  box-shadow: var(--shadow-card);
+}
+
+.detail-card__kicker {
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.detail-card__title {
+  margin: 6px 0 12px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.detail-card__art {
+  aspect-ratio: 1 / 1;
+  padding: 12px;
+  border-radius: 14px;
+  background: radial-gradient(120% 100% at 30% 0%, #fffdf7, #f2e9d9);
+  border: 1px solid var(--line);
+}
+
+.detail-card__stage {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(201, 164, 106, 0.12);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+.detail-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.detail-card__brief {
+  margin: 12px 0 0;
+  font-size: 13.5px;
+  line-height: 1.85;
+  color: var(--ink-soft);
+}
+
+.doc {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 8px 10px;
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+
+.doc dt {
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+}
+
+.doc dd {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.doc__cuts {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.doc__cuts li + li {
+  margin-top: 4px;
+}
+
+.doc__source {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .library {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .library__detail {
+    position: static;
+    order: 2;
+  }
+
+  .library__grid {
+    order: 1;
+  }
+}
+
+@media (max-width: 520px) {
+  .pattern-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .detail-card {
+    padding: 14px;
+  }
+
+  .detail-card__title {
+    font-size: 19px;
+  }
+
+  .doc {
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+  }
+
+  .doc dt {
+    margin-top: 8px;
+  }
+}
+
+/* ---------- puzzle: long-sidebar choreography ---------- */
+
+/* The stage stays in view while the sidebar (preview → controls → archive →
+   levels) scrolls past it; it is shorter than the viewport, so sticky is safe. */
+.puzzle__stage {
+  position: sticky;
+  top: 86px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.archive {
+  padding: 0;
+}
+
+.archive__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.archive__summary::-webkit-details-marker {
+  display: none;
+}
+
+.archive__summary::after {
+  content: '展开';
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+}
+
+.archive[open] .archive__summary::after {
+  content: '收起';
+}
+
+.archive__meta {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+
+.archive .doc {
+  margin: 0;
+  padding: 0 16px 16px;
+}
+
+@media (max-width: 900px) {
+  .puzzle__stage {
+    position: static;
+  }
+}

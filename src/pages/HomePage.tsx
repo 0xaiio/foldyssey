@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { navigate } from '../app/router';
-import { MiniPattern } from '../components/MiniPattern';
+import { PatternLibrary } from '../components/PatternLibrary';
 import { PaperStage } from '../components/PaperStage';
 import { applyCuts, cutFromAngle } from '../geometry/cut';
 import { getPreset } from '../geometry/fold';
 import { useAnimatedValue, useReducedMotion } from '../hooks/useAnimatedValue';
 import { LEVELS } from '../puzzle/levels';
-import { loadProgress, nextUnclearedIndex } from '../services/storage';
+import { nextUnclearedIndex } from '../services/storage';
 
 const HERO_CUT = cutFromAngle(45, 0.4, 'negative');
 
@@ -112,10 +112,8 @@ function HeroDemo() {
 }
 
 export function HomePage() {
-  const progress = useMemo(() => loadProgress(), []);
   const startIndex = useMemo(() => nextUnclearedIndex(LEVELS.map((l) => l.id)), []);
   const startLevel = LEVELS[startIndex] ?? LEVELS[0];
-  const cleared = LEVELS.filter((l) => progress[l.id]?.cleared).length;
 
   return (
     <>
@@ -206,37 +204,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="section">
-        <div className="section__head">
-          <div>
-            <div className="kicker">Six levels</div>
-            <h2 className="h2">六个关卡，六种几何</h2>
-          </div>
-          <p className="muted">
-            已通关 {cleared} / {LEVELS.length}
-          </p>
-        </div>
-        <div className="grid-3">
-          {LEVELS.map((level) => (
-            <button
-              key={level.id}
-              className="level-card"
-              onClick={() => navigate(`/puzzle/${level.id}`)}
-            >
-              <div className="level-card__art">
-                <MiniPattern paper={level.target} color="#B93645" label={`${level.title}目标图案`} />
-              </div>
-              <div className="level-card__body">
-                <strong>
-                  {String(level.index).padStart(2, '0')} · {level.title}
-                </strong>
-                <span>{level.subtitle}</span>
-                {progress[level.id]?.cleared ? <em className="stamp">已通关</em> : null}
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
+      <PatternLibrary />
 
       <section className="section">
         <div className="grid-3">

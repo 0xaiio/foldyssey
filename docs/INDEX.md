@@ -30,6 +30,7 @@ Foldyssey（一刀万象）的工程文档。**文档与代码同步演进**：�
 | `docs/DEVELOPMENT.md` | 环境、脚本、编码约定、调试入口 | 开发流程变化时 |
 | `docs/TESTING.md` | 测试矩阵、执行方式、质量闸门 | 测试范围变化时 |
 | `docs/UX_REDESIGN.md` | 交互与判定重设计：容差、诊断、实时对照、阶段划分 | 交互/判定变化时 |
+| `docs/PATTERNS.md` | 11 个图案的折叠结构 / 切割逻辑 / 展开效果 + 研究引用边界 | 图案增删时 |
 | `docs/DEPLOYMENT.md` | 构建、发布、更新发布、线上核验 | 发布流程变化时 |
 | `docs/GITHUB_WORKFLOW.md` | Git 规范、分支、提交、推送 | Git 规则变化时 |
 | `docs/SECURITY.md` | 密钥、隐私、依赖、漏洞披露 | 安全边界变化时 |

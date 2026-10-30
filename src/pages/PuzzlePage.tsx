@@ -189,7 +189,8 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
       : level.canonicalCuts[0]?.kind === 'notch'
         ? '剪一剪'
         : '剪一刀';
-  const nudgeBudget = level.stage === 3 ? 0 : 6;
+  // Stage 3 gives no one-tap help; stage 4 has more cuts, so it needs more taps.
+  const nudgeBudget = level.stage === 3 ? 0 : level.stage === 4 ? 8 : 6;
 
   return (
     <>
@@ -235,8 +236,8 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
               <b>选刀</b>
               {level.cutCount > 1 ? (
                 <>
-                  ：用 <span className="mono">第 1 刀 / 第 2 刀</span> 标签页切换要编辑的切口；
-                  本关是「{level.cutSummary}」。
+                  ：用切口标签页切换要编辑的那一刀（本关：{level.cutLabels?.join(' / ') ?? '第 1 刀'}），
+                  共「{level.cutSummary}」。
                 </>
               ) : (
                 <>
@@ -269,7 +270,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
       </section>
 
       <div className="puzzle">
-        <div>
+        <div className="puzzle__stage">
           <div className={`stage-card${phase === 'revealed' ? ' is-revealed' : ''}`}>
             <div className="stage-badge">
               <span className="stage-badge__dot" data-phase={phase} aria-hidden="true" />
@@ -373,23 +374,6 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
 
           <div className="card card--pad">
             <div className="panel-title">
-              <h3>目标图案</h3>
-              <span>{formatPercent(level.targetArea / 4, 0)} 保留</span>
-            </div>
-            <div className="target-frame">
-              <MiniPattern
-                paper={level.target}
-                color="#B93645"
-                label={`${level.title}的目标图案`}
-              />
-            </div>
-            <p className="note" style={{ marginTop: 10 }}>
-              {preset.description}
-            </p>
-          </div>
-
-          <div className="card card--pad">
-            <div className="panel-title">
               <h3>剪切参数</h3>
               <span className="mono">
                 吻合 {formatPercent(liveScore.iou, 0)}
@@ -399,6 +383,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
 
             {level.cutCount > 1 && (
               <div className="cut-tabs" role="tablist" aria-label="选择要编辑的切口">
+                {/* Tabs carry the role of each cut, not just its index. */}
                 {cuts.map((_, i) => (
                   <button
                     key={`cut-tab-${i}`}
@@ -408,7 +393,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
                     onClick={() => setActiveCut(i)}
                     disabled={!canPlay}
                   >
-                    第 {i + 1} 刀
+                    {level.cutLabels?.[i] ?? `第 ${i + 1} 刀`}
                   </button>
                 ))}
               </div>
@@ -530,7 +515,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
             ) : null}
 
             <p className="note" style={{ marginTop: 6 }}>
-              第 {active + 1} 刀：{describeCut(cut)}
+              {level.cutLabels?.[active] ?? `第 ${active + 1} 刀`}：{describeCut(cut)}
               <br />
               也可以直接在纸上拖动：拖线身平移、拖圆点旋转；折剪拖顶点改深度、拖两臂改方向。
             </p>
@@ -643,6 +628,23 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
 
           <div className="card card--pad">
             <div className="panel-title">
+              <h3>目标图案</h3>
+              <span>{formatPercent(level.targetArea / 4, 0)} 保留</span>
+            </div>
+            <div className="target-frame">
+              <MiniPattern
+                paper={level.target}
+                color="#B93645"
+                label={`${level.title}的目标图案`}
+              />
+            </div>
+            <p className="note" style={{ marginTop: 10 }}>
+              {preset.description}
+            </p>
+          </div>
+
+          <div className="card card--pad">
+            <div className="panel-title">
               <h3>知识点</h3>
               <span>Math</span>
             </div>
@@ -650,6 +652,35 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
               {level.knowledge}
             </p>
           </div>
+
+          {level.patternDoc && (
+            <details className="card card--pad archive">
+              <summary className="archive__summary">
+                <span>图案档案</span>
+                <span className="archive__meta">{level.stageLabel} · 折叠 / 切割 / 展开</span>
+              </summary>
+              <dl className="doc">
+                <dt>折叠结构</dt>
+                <dd>{level.patternDoc.fold}</dd>
+                <dt>切割逻辑</dt>
+                <dd>
+                  <ol className="doc__cuts">
+                    {level.patternDoc.cuts.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ol>
+                </dd>
+                <dt>展开效果</dt>
+                <dd>{level.patternDoc.unfold}</dd>
+                {level.patternDoc.source && (
+                  <>
+                    <dt>研究灵感</dt>
+                    <dd className="doc__source">{level.patternDoc.source}</dd>
+                  </>
+                )}
+              </dl>
+            </details>
+          )}
 
           <div className="card card--pad">
             <div className="panel-title">

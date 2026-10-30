@@ -6,11 +6,11 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v0.5.0（判定分级 + 一键诊断 + 实时对照 + 三阶段关卡） |
+| 版本 | v0.6.0（新增 5 个典藏图案 + 图案库） |
 | 分支 | `main` |
 | 最新提交 | 见下方「提交记录」末行 |
 | 构建 | `npm run build` 通过（主包 ~251 kB；`AiPage` 独立 chunk 156 kB 懒加载） |
-| 测试 | `npm run test` → **81 passed \| 1 skipped**；`tools/ui_check.py` 37/37；`tools/ai_check.py` 14/14 |
+| 测试 | `npm run test` → **81 passed \| 1 skipped**；`tools/ui_check.py` 45/45；`tools/ai_check.py` 14/14 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.1.0 版本已核验；v0.2.0 待更新发布） |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session） |

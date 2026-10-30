@@ -125,8 +125,26 @@ def main() -> int:
     time.sleep(1.2)
 
     check("home: title", "Foldyssey" in (cdp.eval("document.title") or ""), str(cdp.eval("document.title")))
-    check("home: six level cards", cdp.eval("document.querySelectorAll('.level-card').length") == 6,
-          str(cdp.eval("document.querySelectorAll('.level-card').length")))
+    check("home: eleven pattern cards", cdp.eval("document.querySelectorAll('.pattern-card').length") == 11,
+          str(cdp.eval("document.querySelectorAll('.pattern-card').length")))
+    check("home: all + four stage filters",
+          cdp.eval("document.querySelectorAll('.filter-chip').length") == 5,
+          str(cdp.eval("document.querySelectorAll('.filter-chip').length")))
+    check("home: library detail shows the fold/cut/unfold doc",
+          all(k in (cdp.eval("document.body.innerText") or "") for k in ("折叠结构", "切割逻辑", "展开效果")))
+    first_title = cdp.eval("document.querySelector('.detail-card__title')?.textContent || ''")
+    cdp.eval("document.querySelectorAll('.pattern-card')[10]?.click()")
+    time.sleep(0.4)
+    second_title = cdp.eval("document.querySelector('.detail-card__title')?.textContent || ''")
+    check("home: selecting a card updates the detail", bool(first_title) and first_title != second_title,
+          f"{first_title} -> {second_title}")
+    cdp.eval("document.querySelectorAll('.filter-chip')[4]?.click()")
+    time.sleep(0.3)
+    check("home: stage filter narrows the grid",
+          cdp.eval("document.querySelectorAll('.pattern-card').length") == 5,
+          str(cdp.eval("document.querySelectorAll('.pattern-card').length")))
+    cdp.eval("document.querySelectorAll('.filter-chip')[0]?.click()")
+    time.sleep(0.2)
     check("home: hero stage has paper paths", (cdp.eval("document.querySelectorAll('.hero__stage svg path').length") or 0) > 3,
           str(cdp.eval("document.querySelectorAll('.hero__stage svg path').length")))
     check("home: no horizontal overflow",
@@ -236,6 +254,21 @@ def main() -> int:
           str(cdp.eval("document.querySelectorAll('.hint-list li').length")))
     check("stage 1: level is a single straight cut",
           (cdp.eval("document.querySelectorAll('.cut-tab').length") or 0) == 0)
+
+    # --- 阶段 4：角色化标签 + 可折叠的图案档案 ---
+    cdp.eval("location.hash = '#/puzzle/pearls'")
+    cdp.wait_for("document.body.innerText.includes('八方连珠')", 10, "pearls")
+    time.sleep(1.2)
+    tabs = cdp.eval("[...document.querySelectorAll('.cut-tab')].map(b=>b.innerText.trim()).join('|')")
+    check("stage 4: tabs are named by role", "花心" in (tabs or "") and "菱孔环" in (tabs or ""), str(tabs))
+    check("stage 4: archive is collapsed by default",
+          cdp.eval("!!document.querySelector('.archive') && !document.querySelector('.archive').open"))
+    check("stage 4: stage label present", "阶段 4" in (cdp.eval("document.body.innerText") or ""))
+    cdp.eval("document.querySelector('.archive__summary')?.click()")
+    time.sleep(0.3)
+    archive_text = cdp.eval("document.querySelector('.archive')?.innerText || ''")
+    check("stage 4: archive opens to reveal the fold/cut/unfold doc",
+          "折叠结构" in (archive_text or ""), str(archive_text)[:60])
 
     # --- 八折团花关：多切口 + 折剪面板 ---
     cdp.eval("location.hash = '#/puzzle/rosette'")

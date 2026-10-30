@@ -16,7 +16,7 @@ import type { FoldPresetId } from '../geometry/fold';
 import type { MultiPolygon } from '../geometry/polygon';
 import { type ScoreThresholds, scorePaper } from '../geometry/score';
 
-export type EditableField = 'angle' | 'offset' | 'distance' | 'width';
+export type EditableField = 'angle' | 'offset' | 'distance' | 'width' | 'radius' | 'size' | 'rotation';
 
 /** One step of the on-screen slider, per field. */
 export const STEP: Record<EditableField, number> = {
@@ -24,6 +24,9 @@ export const STEP: Record<EditableField, number> = {
   offset: 0.01,
   distance: 0.01,
   width: 0.01,
+  radius: 0.01,
+  size: 0.005,
+  rotation: 1,
 };
 
 export const FIELD_LABEL: Record<EditableField, string> = {
@@ -31,6 +34,9 @@ export const FIELD_LABEL: Record<EditableField, string> = {
   offset: '距中心',
   distance: '顶点距中心',
   width: '张口宽度',
+  radius: '距中心',
+  size: '半宽',
+  rotation: '转角',
 };
 
 export type Nudge = {
@@ -55,7 +61,9 @@ export type Diagnosis = {
 };
 
 function fieldsOf(cut: Cut): EditableField[] {
-  return cut.kind === 'line' ? ['angle', 'offset'] : ['angle', 'distance', 'width'];
+  if (cut.kind === 'line') return ['angle', 'offset'];
+  if (cut.kind === 'notch') return ['angle', 'distance', 'width'];
+  return ['angle', 'radius', 'size', 'rotation'];
 }
 
 function valueOf(cut: Cut, field: EditableField): number {
@@ -65,6 +73,10 @@ function valueOf(cut: Cut, field: EditableField): number {
   if (cut.kind === 'notch') {
     return field === 'angle' ? cut.angle : field === 'distance' ? cut.distance : cut.width;
   }
+  if (field === 'angle') return cut.angle;
+  if (field === 'radius') return cut.radius;
+  if (field === 'size') return cut.size;
+  if (field === 'rotation') return cut.rotation;
   return Number.NaN;
 }
 
@@ -73,7 +85,10 @@ export function applyStep(cut: Cut, field: EditableField, delta: number, steps =
   const d = delta * steps;
   if (cut.kind === 'line') {
     if (field === 'angle') {
-      const deg = (((cutAngleDeg(cut) + d) % 180) + 180) % 180;
+      // Clamp instead of wrapping: the slider runs 0..179.5, and wrapping past
+      // 0 would flip which half-plane is removed — a cliff, not a nudge.
+      const deg = Math.max(0, Math.min(179.5, cutAngleDeg(cut) + d));
+      if (Math.abs(deg - cutAngleDeg(cut)) < 1e-9) return null;
       return cutFromAngle(deg, cut.offset, cut.removedSide);
     }
     if (field === 'offset') {
@@ -96,6 +111,17 @@ export function applyStep(cut: Cut, field: EditableField, delta: number, steps =
       const v = Math.max(0.05, Math.min(1.2, cut.width + d));
       return notchCut(cut.angle, cut.distance, Number(v.toFixed(2)));
     }
+    return null;
+  }
+  if (cut.kind === 'hole') {
+    const clampTo = (v: number, lo: number, hi: number) => Number(Math.max(lo, Math.min(hi, v)).toFixed(3));
+    if (field === 'angle') {
+      const v = Math.max(0, Math.min(180, cut.angle + d));
+      return { ...cut, angle: Number(v.toFixed(1)) };
+    }
+    if (field === 'radius') return { ...cut, radius: clampTo(cut.radius + d, 0, 1.05) };
+    if (field === 'size') return { ...cut, size: clampTo(cut.size + d, 0.02, 0.4) };
+    if (field === 'rotation') return { ...cut, rotation: clampTo(cut.rotation + d, 0, 180) };
   }
   return null;
 }

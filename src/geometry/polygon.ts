@@ -256,10 +256,34 @@ export function intersectMP(a: MultiPolygon, b: MultiPolygon): MultiPolygon {
   return cleanMultiPolygon(fromClip(clipIntersection(toClip(a), toClip(b))));
 }
 
+/**
+ * Difference, with the same "one bad member must not erase everything" rule as
+ * `unionMP`.
+ *
+ * A tooth diamond whose centre sits on the packet edge can turn degenerate when
+ * its angle is nudged, and `polygon-clipping` then throws — which used to blank
+ * the whole sheet (`A \ B` returning empty). The fast path stays one call; the
+ * fallback subtracts member by member and skips the one that poisons the op.
+ */
 export function differenceMP(a: MultiPolygon, b: MultiPolygon): MultiPolygon {
   if (!a.length) return [];
   if (!b.length) return a;
-  return cleanMultiPolygon(fromClip(clipDifference(toClip(a), toClip(b))));
+
+  const whole = cleanMultiPolygon(fromClip(clipDifference(toClip(a), toClip(b))));
+  if (whole.length > 0) return whole;
+
+  // Empty result: either B really covers A, or a degenerate member broke it.
+  const aArea = multiPolygonArea(a);
+  const bArea = multiPolygonArea(b);
+  if (aArea > 1e-12 && bArea >= aArea * 0.98) return [];
+
+  let acc = a;
+  for (const poly of b) {
+    const next = cleanMultiPolygon(fromClip(clipDifference(toClip(acc), [toClip([poly]) as never])));
+    if (next.length === 0) continue;
+    acc = next;
+  }
+  return acc;
 }
 
 export function xorMP(a: MultiPolygon, b: MultiPolygon): MultiPolygon {

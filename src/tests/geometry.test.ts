@@ -294,7 +294,12 @@ describe('puzzle: tolerance contract', () => {
     // step is always inside the stage's tolerance band.
     for (const level of LEVELS) {
       level.canonicalCuts.forEach((cut, ci) => {
-        const fields = cut.kind === 'line' ? ['angle', 'offset'] : cut.kind === 'notch' ? ['angle', 'distance', 'width'] : [];
+        const fields =
+          cut.kind === 'line'
+            ? ['angle', 'offset']
+            : cut.kind === 'notch'
+              ? ['angle', 'distance', 'width']
+              : ['angle', 'radius', 'size', 'rotation'];
         for (const field of fields) {
           for (const sign of [1, -1]) {
             const next = stepCut(cut, field, sign);
@@ -319,7 +324,7 @@ describe('puzzle: tolerance contract', () => {
 
   it('every level has a stage and a readable label', () => {
     for (const level of LEVELS) {
-      expect([1, 2, 3]).toContain(level.stage);
+      expect([1, 2, 3, 4]).toContain(level.stage);
       expect(level.stageLabel).toContain('阶段');
     }
   });
@@ -328,7 +333,9 @@ describe('puzzle: tolerance contract', () => {
 function stepCut(cut: Cut, field: string, sign: number): Cut | null {
   if (cut.kind === 'line') {
     if (field === 'angle') {
-      const deg = (cutAngleDeg(cut) + sign * 0.5 + 360) % 180;
+      // Same range as the on-screen slider: 0 .. 179.5, clamped, never wrapped.
+      const deg = Math.max(0, Math.min(179.5, cutAngleDeg(cut) + sign * 0.5));
+      if (Math.abs(deg - cutAngleDeg(cut)) < 1e-9) return null;
       return cutFromAngle(deg, cut.offset, cut.removedSide);
     }
     if (field === 'offset') return { ...cut, offset: Number((cut.offset + sign * 0.01).toFixed(2)) };
@@ -338,14 +345,21 @@ function stepCut(cut: Cut, field: string, sign: number): Cut | null {
     if (field === 'angle') return notchCut(Number((cut.angle + sign * 0.5).toFixed(1)), cut.distance, cut.width);
     if (field === 'distance') return notchCut(cut.angle, Number((cut.distance + sign * 0.01).toFixed(2)), cut.width);
     if (field === 'width') return notchCut(cut.angle, cut.distance, Number((cut.width + sign * 0.01).toFixed(2)));
+    return null;
+  }
+  if (cut.kind === 'hole') {
+    if (field === 'angle') return { ...cut, angle: Number((cut.angle + sign * 0.5).toFixed(1)) };
+    if (field === 'radius') return { ...cut, radius: Number((cut.radius + sign * 0.01).toFixed(2)) };
+    if (field === 'size') return { ...cut, size: Number((cut.size + sign * 0.005).toFixed(3)) };
+    if (field === 'rotation') return { ...cut, rotation: Number((cut.rotation + sign * 1).toFixed(1)) };
   }
   return null;
 }
 
 describe('puzzle: shipped levels', () => {
-  it('ships six levels with unique ids', () => {
-    expect(LEVELS).toHaveLength(6);
-    expect(new Set(LEVELS.map((l) => l.id)).size).toBe(6);
+  it('ships eleven levels with unique ids', () => {
+    expect(LEVELS).toHaveLength(11);
+    expect(new Set(LEVELS.map((l) => l.id)).size).toBe(11);
   });
 
   it('every level can be solved by its canonical solution', () => {

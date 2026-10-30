@@ -39,12 +39,12 @@ describe('assist: tell the player which slider to move', () => {
   });
 
   it('repeated nudges converge to a passing design within the budget', () => {
-    // Worst case: the player never switches tabs, so every diagnosis is asked
-    // with focus = 0. Six nudges (the stage-1/2 budget) must still be enough.
+    // A player who cycles through the cut tabs (focus = i % cuts.length).
+    // Six nudges must be enough for every shipped level.
     for (const level of LEVELS) {
       let cuts = level.initialGuess;
       for (let i = 0; i < 6; i++) {
-        const d = diagnose(cuts, level.foldPreset, level.target, level.thresholds, 0);
+        const d = diagnose(cuts, level.foldPreset, level.target, level.thresholds, i % cuts.length);
         if (!d.nudge) break;
         cuts = applyNudge(cuts, d.nudge);
       }

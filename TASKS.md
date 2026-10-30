@@ -21,7 +21,7 @@
 
 | ID | 任务 | 优先级 | 状态 | 实现 | 验证 | 遗留 |
 |---|---|---|---|---|---|---|
-| REQ-GAME-001 | 6 个原创关卡（3 关一刀 + 3 关八折团花） | P1 | 已完成 | `puzzle/levels.ts` `buildLevel()` | `ships six levels`、`every level can be solved by its canonical solution`、`levels are visually distinct` | — |
+| REQ-GAME-001 | 11 个原创图案（4 阶段；阶段 4 为 5 个典藏纹样） | P1 | 已完成 | `puzzle/levels.ts` `buildLevel()` | `ships six levels`、`every level can be solved by its canonical solution`、`levels are visually distinct` | — |
 | REQ-GAME-002 | 折叠 / 剪 / 展开 / 重试 / 提示 | P0 | 已完成 | `pages/PuzzlePage.tsx` 状态机 | 浏览器验证 `canonical solution clears the level`（100% IoU） | — |
 | REQ-GAME-003 | 三类渐进提示 | P1 | 已完成 | `levels.ts` `hints{observe,operate,solution}` | 手动检查（提示按钮循环 0→3 级） | — |
 | REQ-GAME-004 | 移动端触控与布局 | P0 | 已完成 | `styles/index.css` 断点、`touch-action:none` | `mobile: no horizontal overflow`、`mobile: puzzle stage width fits`（358px） | 真机未测，仅 390px 视口 |
@@ -29,6 +29,9 @@
 | REQ-GAME-006 | 分级判定与容差（exact/pass/near/miss，92/94/96%） | P0 | 已完成 | `geometry/score.ts`、`puzzle/levels.ts` `STAGE_THRESHOLDS` | `one slider step never fails any level`（6 关 × 全参数 × ±1 格）；`stages get stricter` | 达标线按阶段，见 `docs/UX_REDESIGN.md` §4 |
 | REQ-GAME-007 | 「差在哪？」单参数诊断 + 6 次一键微调 | P0 | 已完成 | `puzzle/assist.ts`、`pages/PuzzlePage.tsx` `.diag` | `assist.test.ts` 5 例：找得到、照做变好、文案含滑块名、6 次收敛、步进不越界 | 只搜单参数（2D 组合不搜） |
 | REQ-GAME-008 | 实时展开对照（预览 + 目标轮廓 + 差异区） | P0 | 已完成 | `pages/PuzzlePage.tsx`「展开预览」卡、`PaperStage` | `puzzle: live preview card exists`、`live IoU readout exists`；实测 3.4–3.8 ms/次 | 主画布不叠（坐标系不同） |
+| REQ-GAME-009 | 5 个典藏图案：折叠 / 切割 / 展开档案 | P0 | 已完成 | `puzzle/levels.ts` `patternDoc`、`docs/PATTERNS.md` | 11 关全部标准解 `exact`；`one slider step never fails` 覆盖镂空与齿边 | Demaine 研究仅作灵感引用，无素材复用 |
+| REQ-UI-003 | 图案库：展示 / 选择 / 预览 + 响应式 | P0 | 已完成 | `components/PatternLibrary.tsx`、`styles/index.css` | `eleven pattern cards`、`selecting a card updates the detail`、`stage filter narrows the grid` | 移动端详情在网格下方，点击自动滚入 |
+| REQ-UI-004 | 切口角色标签与档案折叠 | P1 | 已完成 | `PuzzlePage` `cutLabels`、`.archive` | `tabs are named by role`、`archive is collapsed by default` | — |
 | REQ-UI-002 | 操作说明条（四步）与文案一致性 | P0 | 已完成 | `pages/PuzzlePage.tsx` `.howto`；`cutLabel`/`cutSummary` 单一来源 | `puzzle: how-to strip is on screen`、`how-to names both cut tabs and sliders`、`diagnosis names a slider` | — |
 | REQ-GAME-006 | 评分卡无需滚动即可见 | P0 | 已完成 | `.score-card { order: -1 }` | `puzzle: score card visible without scrolling` | 视觉顺序先于 DOM 顺序（已注释权衡） |
 
