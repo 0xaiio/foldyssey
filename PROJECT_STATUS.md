@@ -6,11 +6,11 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v0.2.0（新增 AI 灵感设计师） |
+| 版本 | v0.3.0（新增八折团花预设与折剪原语） |
 | 分支 | `main` |
 | 最新提交 | 见下方「提交记录」末行 |
-| 构建 | `npm run build` 通过（主包 ~232 kB；`AiPage` 独立 chunk 139 kB 懒加载） |
-| 测试 | `npm run test` → **46 passed \| 1 skipped**；`tools/ui_check.py` 23/23；`tools/ai_check.py` 13/13 |
+| 构建 | `npm run build` 通过（主包 ~239 kB；`AiPage` 独立 chunk 139 kB 懒加载） |
+| 测试 | `npm run test` → **53 passed \| 1 skipped**；`tools/ui_check.py` 26/26；`tools/ai_check.py` 14/14 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.1.0 版本已核验；v0.2.0 待更新发布） |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session） |
@@ -37,6 +37,9 @@
 | v0.2.0 线上发布 | 待确认 | AI 功能只在本地验证过；线上仍为 v0.1.0，需「更新发布」 |
 
 ## 已知问题
+
+0. 关卡 4–6 使用**折剪**（V 形，两段），不是「一刀直线」：直线与任意对称群作用下的并集
+   仍是半平面之交，只能得到凸多边形。UI 按实际组成标注（「1 个折剪」等），不混称一刀。
 
 1. `tools/shots/*.png` 每次运行验证脚本都会被覆盖，产生 Git 噪声（可接受）。
 2. 工坊的「自定义纸色」不进入撤销历史（只记录在 present 状态，撤销会跳回上一个快照）。
