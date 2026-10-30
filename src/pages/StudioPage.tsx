@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { navigate } from '../app/router';
+import { takeAiDraft } from '../ai/draft';
 import { MiniPattern } from '../components/MiniPattern';
 import { PaperStage } from '../components/PaperStage';
 import { useToast } from '../components/Toast';
@@ -76,6 +77,21 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
     setPast([]);
     setFuture([]);
     setActive(0);
+  }, [artworkId, toast]);
+
+  // Hand-off from the AI page: it only passes parameters. The geometry is
+  // recomputed here by the same engine, so the studio stays the single source
+  // of truth and the draft can be edited like any hand-made design.
+  useEffect(() => {
+    if (artworkId) return;
+    const draft = takeAiDraft();
+    if (!draft) return;
+    setState({ foldPreset: draft.foldPreset, cuts: draft.cuts, style: draft.style });
+    setTitle(draft.title || 'AI 灵感');
+    setPast([]);
+    setFuture([]);
+    setActive(0);
+    toast('已载入 AI 生成的设计参数，可继续调整。');
   }, [artworkId, toast]);
 
   const beginEdit = () => {

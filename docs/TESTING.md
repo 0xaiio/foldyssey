@@ -5,7 +5,10 @@
 
 ## 1. 单元测试（`npm run test`）
 
-位置 `src/tests/geometry.test.ts`，共 29 个用例，按组：
+位置 `src/tests/`，共 **46 个用例（+1 个默认跳过）**，按组：
+
+> `vite.config.ts` 里设了 `fileParallelism: false`：在受限 shell 中多个 worker 同时
+> 启动会争抢模块缓存的临时目录（EPERM），导致测试文件被静默丢弃。串行加载后稳定。
 
 | 组 | 覆盖 | 关键用例 |
 |---|---|---|
@@ -15,9 +18,24 @@
 | scoring | 评分 | IoU=1、错误解不通过、空区域不产生 NaN、容差内仍判通过 |
 | shipped levels | 关卡数据 | 6 关唯一、每关标准解 IoU=1、每关初始猜测不通过、关卡互不相同、标准解可被 UI 复现 |
 | export | 导出 | SVG 有 `evenodd` 与 2 个子路径、文件名稳定 |
+| ai schema（`ai.test.ts`） | 模型输出校验 | 未知字段/未知 motif/越界数值/非法颜色/order=8 全部拒绝；对称类型不一致、低对比度、超长标题被确定性降级；45 组极值组合都仍可渲染；同输入同路径 |
+| ai parsing | 解析模型文本 | 容忍 ```json 围栏与前后废话；无 JSON 抛错；控制字符清洗与截断 |
+| ai live（默认跳过） | 真实调用 | `FOLDYSSEY_LIVE_AI=1` 时调用真实模型，断言返回可渲染设计 |
 
 断言口径：允许 `1e-9` 级浮点误差（`toBeCloseTo(x, 9)`）；
 结构一致性用路径字符串完全相等（确定性）。
+
+## 1.5 AI 专项验证
+
+| 层 | 命令 | 判据 |
+|---|---|---|
+| Schema | `npm run test` | 17 个用例全绿 |
+| 真实模型 | `FOLDYSSEY_LIVE_AI=1 npx vitest run src/tests/ai.live.test.ts` | 返回合法 JSON、`paper` 面积 > 0.32 |
+| 浏览器 | `EDGE_ATTACH_PORT=9234 python tools/ai_check.py` | 生成成功 / 限流生效 / 失败保留上一张 / 交接工坊 / 核心功能不受影响 |
+| 降级 | 同上（连续点两次「再生成一张」） | 出现「慢一点，N 秒后再生成」，且上一张设计仍在 |
+
+AI 用例**不进**默认测试套件：真实调用有网络依赖、每次都消耗额度，`npm run test`
+必须保持离线与确定性。
 
 ## 2. 浏览器端验证（`tools/ui_check.py`）
 

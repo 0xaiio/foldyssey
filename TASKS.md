@@ -45,13 +45,18 @@
 |---|---|---|---|---|---|---|
 | REQ-REL-001 | WorkBuddy 公开发布 | P0 | 见 `submission/publish_verification.md` | 平台「网站应用」发布 | 同文件记录 | 需账号授权 |
 | REQ-REL-002 | 更新发布后线上为最新 | P0 | 见同文件 | 「更新发布」 | 同文件记录 | — |
-| REQ-AI-001 | 运行时 AI 灵感设计师 | P2 | **未完成** | 未创建 `src/ai/` | 页面无入口、无网络请求 | 见 `docs/AI_INTEGRATION.md` |
+| REQ-AI-001 | 运行时 AI 灵感设计师 | P1 | **已完成** | `src/ai/{schema,prompt,client,draft}.ts` + `pages/AiPage.tsx`；模型只出参数，几何引擎出图 | 真实调用：`glm-5.3-flash` 3.2s 返回合法 JSON；浏览器 `tools/ai_check.py` 13/13 | 见 `docs/AI_INTEGRATION.md` §7 |
+| REQ-AI-003 | 输出 Schema 校验 | P0 | 已完成 | `zod` + `.strict()`；`motifToCut()` 固定映射 | `src/tests/ai.test.ts` 17 例（未知字段/枚举/越界/注入/降级） | — |
+| REQ-AI-004 | 调用约束 | P0 | 已完成 | 120 字截断、单飞、30s AbortController、5s 间隔、每会话 12 次 | `ai: rate limit refuses a second call within 5s` | 仅客户端限流 |
+| REQ-AI-005 | 失败降级 | P0 | 已完成 | 错误码前缀映射 + 重试 + 改用预设；`AiPage` 懒加载 + `Boundary` | `core: puzzle still works after the AI page` | — |
+| REQ-AI-006 | 密钥不进前端 | P0 | 已完成 | 仅 `endpoint` + `publishableKey`；无模型 Key | `src/ai/cloudConfig.ts` 代码审查 + 仓库扫描 | — |
 | REQ-AI-002 | AI 使用披露 | P1 | 已完成 | About 页 + `submission/ai_usage_disclosure.md` | 文本可查 | — |
 | REQ-DOC-001 | 文档体系 | P0 | 已完成 | `docs/*`、根目录 6 份 | `docs/INDEX.md` 清单与实际文件一致 | — |
 | REQ-DOC-002 | 任务追踪与里程碑记录 | P0 | 已完成 | 本文件 + `PROJECT_STATUS.md` | 提交表含真实 SHA | — |
 | REQ-BRAND-001 | 品牌统一 | P0 | 已完成 | `index.html`、`public/favicon.svg`、各页文案 | 首页 title 断言 | — |
-| REQ-QA-001 | 单元测试 | P0 | 已完成 | `src/tests/geometry.test.ts` | `29 passed` | — |
-| REQ-QA-002 | 浏览器端验证 | P1 | 已完成 | `tools/ui_check.py` | 本地 `23/23`、线上 `23/23`，`console issues: 0` | 仅 Chromium 内核 |
+| REQ-QA-001 | 单元测试 | P0 | 已完成 | `src/tests/{geometry,ai}.test.ts` | `46 passed | 1 skipped`（3 次连跑一致） | — |
+| REQ-QA-002 | 浏览器端验证 | P1 | 已完成 | `tools/ui_check.py`、`tools/ai_check.py` | 主流程 `23/23`（本地+线上）、AI `13/13`，`console issues: 0` | 仅 Chromium 内核 |
+| REQ-QA-003 | 真实模型调用验证 | P0 | 已完成 | `src/tests/ai.live.test.ts`（默认 skip） | `FOLDYSSEY_LIVE_AI=1` 时通过，输出合法 JSON 并渲染 | 每次消耗一次额度 |
 
 ## 五、明确不做（不适用）
 

@@ -37,8 +37,12 @@
 | REQ-STUDIO-006 | 多切口（≤3）与配色预设 | P1 | 工坊可增删切口、5 套配色 + 自定义纸色 | 已完成 |
 | REQ-REL-001 | WorkBuddy 公开发布 | P0 | 未登录可打开并完成一关 | 见 `submission/publish_verification.md` |
 | REQ-REL-002 | 更新发布后线上为最新版 | P0 | 同一链接展示当前版本 | 见同文件 |
-| REQ-AI-001 | 运行时 AI 灵感设计师 | P2 | 真实接入、Schema 校验、可降级 | **未完成**（明确未上线） |
-| REQ-AI-002 | AI 使用披露 | P1 | 开发用 AI 与运行时 AI 分开说明 | 已完成（`About` + `submission/ai_usage_disclosure.md`） |
+| REQ-AI-001 | 运行时 AI 灵感设计师（真实接入） | P1 | 一句话输入 → 云端模型 → 可渲染参数 → 真实图案 | 已完成 |
+| REQ-AI-002 | AI 使用披露（开发期 / 运行期分开） | P1 | About 页 + `submission/ai_usage_disclosure.md` 分开说明 | 已完成 |
+| REQ-AI-003 | 输出 Schema 校验 | P0 | 未知字段/枚举/越界/非法颜色一律拒绝；`strict()` | 已完成 |
+| REQ-AI-004 | 调用约束（长度/并发/超时/限流/预算） | P0 | 120 字、单飞、30s 超时、5s 间隔、每会话 12 次 | 已完成 |
+| REQ-AI-005 | 失败可降级、不影响核心玩法 | P0 | 失败显示原因 + 重试 + 改用预设；AI chunk 懒加载隔离 | 已完成 |
+| REQ-AI-006 | 密钥不进前端 / 仓库 | P0 | 只使用 endpoint + publishableKey；无模型 Key | 已完成 |
 | REQ-DOC-001 | 工程文档体系与同步 | P0 | `docs/INDEX.md` 列出的文档都存在且与代码一致 | 已完成 |
 | REQ-DOC-002 | 任务追踪与里程碑记录 | P0 | `TASKS.md` 逐项状态 + 真实 Commit SHA | 已完成 |
 | REQ-BRAND-001 | 品牌与文案统一 | P0 | 标题/分享卡/favicon 统一 Foldyssey · 一刀万象 | 已完成 |

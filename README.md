@@ -7,8 +7,9 @@ Foldyssey 是一座可以玩的数字折剪纸实验室：选一种折叠、拖�
 程序用真实几何运算算出展开后的纸，而不是播放预制动画。
 
 - **在线体验**：见 [submission/publish_verification.md](submission/publish_verification.md)（发布后填写）
-- **技术栈**：React 18 + TypeScript + Vite + SVG + `polygon-clipping` + Vitest
-- **定位**：WorkBuddy「1024 造物挑战」参赛作品 · v0.1.0
+- **技术栈**：React 18 + TypeScript + Vite + SVG + `polygon-clipping` + `zod` +
+  `@tencent-ai/workbuddy-cloud-sdk`（运行时模型）+ Vitest
+- **定位**：WorkBuddy「1024 造物挑战」参赛作品 · v0.2.0
 
 ---
 
@@ -37,10 +38,12 @@ S = ⋃ᵢ ( Pᵢ \ fᵢ⁻¹( D ∩ fᵢ(Pᵢ) ) )
 | 剪纸工坊（最多 3 条切口、配色、撤销/重做、实时双视图） | 已实现 |
 | SVG / PNG 导出、localStorage 作品集 | 已实现 |
 | 折叠 / 剪切 / 展开动画、移动端触控 | 已实现 |
-| 运行时大模型（AI 灵感设计师） | **未实现**，页面无任何模型调用 |
+| **AI 灵感设计师**：一句话 → 受约束的设计参数 → 真实图案 | 已实现并线上验证 |
+| 运行时大模型的密钥暴露 | 无：走 WorkBuddy 云服务，前端只有可公开的 endpoint 与 publishableKey |
 
 **能力边界**：只支持四种固定折叠与直线切割；不支持任意斜折、曲线切口、
 任意目标图案的自动求解、纸张物理形变仿真；不提供经核验的可打印实体模板。
+AI 只挑选参数，不生成图片，也不能越出 Schema 的枚举与数值范围。
 
 ---
 
@@ -49,10 +52,16 @@ S = ⋃ᵢ ( Pᵢ \ fᵢ⁻¹( D ∩ fᵢ(Pᵢ) ) )
 ```bash
 npm install          # Node >= 18
 npm run dev          # 本地开发 http://127.0.0.1:5173
-npm run test         # 几何 / 关卡 / 导出单元测试
+npm run test         # 几何 / 关卡 / 导出 / AI Schema 单元测试（46 passed）
 npm run typecheck    # tsc --noEmit
 npm run build        # 生产构建到 dist/
 npm run preview      # 预览生产包
+```
+
+真实模型调用（会消耗一次额度）：
+
+```bash
+FOLDYSSEY_LIVE_AI=1 npx vitest run src/tests/ai.live.test.ts
 ```
 
 浏览器级验证（需本机 Edge）：
@@ -85,7 +94,7 @@ tools/          浏览器端验证脚本与截图
 1. 只有四种折叠预设，目标形状库受此约束（见 `docs/GEOMETRY_SPEC.md` §6）。
 2. 折叠动画是**端点精确的二维步骤化示意**，不是纸张物理仿真。
 3. 作品只存在浏览器 localStorage，清缓存即丢失（可导出 SVG 长期保存）。
-4. 未接入运行时 AI；`docs/AI_INTEGRATION.md` 记录了设计与未上线原因。
+4. AI 灵感页需要联网，且受客户端限流（5 秒 / 次，每会话 12 次）；核心玩法不依赖它。
 5. 未提供经核验的可打印实体折剪模板，所有作品标注为「未核验」或「数字图案」。
 
 ## 许可

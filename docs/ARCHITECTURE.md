@@ -10,6 +10,9 @@
 │ components/      PaperStage（SVG 渲染器）· MiniPattern ·  │
 │                  Toast                                   │
 ├──────────────────────────────────────────────────────────┤
+│ ai/              schema（zod）· prompt · client · draft    │
+│                  （懒加载 chunk，不进首屏 bundle）          │
+├──────────────────────────────────────────────────────────┤
 │ services/        storage（localStorage）· export（SVG/PNG）│
 ├──────────────────────────────────────────────────────────┤
 │ puzzle/          levels（目标由标准解正向生成）· progress  │
@@ -81,26 +84,53 @@ ready ──fold──▶ folding ──▶ folded ──cut──▶ cutting �
 （`packetView()` 里有显式注释）。指针坐标也用当前 `viewBox` 反算
 （`toMath`，存于 `viewRef`），否则折叠放大后拖拽会漂移。
 
-## 6. 存储
+## 6. AI 层（v0.2.0 新增）
+
+```
+pages/AiPage（懒加载）
+  └─ ai/client.generateDesign()
+       ├─ 输入清洗（120 字、去控制字符）
+       ├─ 限流（单飞 / 5s 间隔 / 会话 12 次）
+       ├─ cloud.llm.models.list()  → 挑一个可用模型（带缓存）
+       ├─ chat.completions.create({ stream: true, response_format: json_object })
+       └─ 累积 SSE → JSON.parse → ai/schema.normalizeDesign()
+            ├─ zod .strict()：未知字段/枚举/越界 → 拒绝
+            ├─ motifToCut()：尺寸/角度 → 直线切割参数
+            ├─ applyCuts()：真实几何 → paper / keepRatio
+            └─ 确定性修复：剪光了就丢最后一刀，仍不行回退中心菱形
+       └─ 失败：按 error.code 前缀映射成人话（auth_/quota_/gateway_/…）
+```
+
+三条硬约束：
+
+1. **模型不画图**。它只输出参数；渲染、评分、导出仍走 `geometry/`。
+2. **不阻塞核心**。AI 页是独立 chunk，用 `React.lazy` + `Boundary` 包裹；
+   chunk 加载失败或模型不可用，挑战/工坊/作品集照常工作。
+3. **交接只传参数**。`ai/draft.ts` 把 `{foldPreset, cuts, style, title}` 放进
+   `sessionStorage`，工坊打开时重新用几何引擎算一遍——工坊仍是唯一可信源。
+
+## 7. 存储
 
 - `foldyssey.artworks.v1`：作品数组（`schemaVersion: 1`）。
 - `foldyssey.progress.v1`：关卡进度（attempts / bestIou / cleared）。
-- 全部为 localStorage，读写包在 try/catch 中；配额错误返回可读文案。
+- `foldyssey.ai.usage.v1`：AI 限流计数（sessionStorage，关标签页即清空）。
+- 全部为浏览器本地存储，读写包在 try/catch 中；配额错误返回可读文案。
 - 作品只存**结构化参数**（折叠预设 + 切口 + 配色），打开时重新计算，
   不缓存图片。
 
-## 7. 为什么没有后端
+## 8. 为什么没有后端
 
-零账号、零网络请求是产品决策（见 ADR-0005）：首屏无需等待、断网可玩、
-没有隐私面。代价是作品不跨设备，已用「导出 SVG/PNG」缓解。
+零账号、零网络请求（AI 页除外）是产品决策（见 ADR-0005）：首屏无需等待、断网可玩、
+没有隐私面。AI 走平台托管的关键字免密通道，因此也不需要自建服务端。
+代价是作品不跨设备，已用「导出 SVG/PNG」缓解。
 
-## 8. 为什么没有物理引擎 / Three.js
+## 9. 为什么没有物理引擎 / Three.js
 
 见 ADR-0001、ADR-0002：一刀剪切的结果是**平面集合**，与纸张刚度、厚度、
 重力无关；引入物理引擎只会增加风险而不提升数学正确性。折叠观感用二维插值
 （沿折痕把一侧压到 0 再翻到另一侧）已足够表达"折叠"这一动作。
 
-## 9. 可扩展点
+## 10. 可扩展点
 
 | 想加什么 | 改哪里 | 注意 |
 |---|---|---|

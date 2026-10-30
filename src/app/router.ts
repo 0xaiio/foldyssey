@@ -6,6 +6,7 @@ export type Route =
   | { name: 'studio'; id?: string }
   | { name: 'gallery' }
   | { name: 'explore' }
+  | { name: 'ai' }
   | { name: 'about' };
 
 export function parseRoute(hash: string): Route {
@@ -20,6 +21,8 @@ export function parseRoute(hash: string): Route {
       return { name: 'gallery' };
     case 'explore':
       return { name: 'explore' };
+    case 'ai':
+      return { name: 'ai' };
     case 'about':
       return { name: 'about' };
     default:

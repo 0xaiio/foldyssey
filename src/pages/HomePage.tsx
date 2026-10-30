@@ -145,6 +145,9 @@ export function HomePage() {
             <button className="btn btn--ghost" onClick={() => navigate('/studio')}>
               进入剪纸工坊
             </button>
+            <button className="btn btn--quiet" onClick={() => navigate('/ai')}>
+              AI 灵感 →
+            </button>
           </div>
           <p className="note">
             无需登录 · 无需下载 · 免费游玩 · 作品保存在你自己的浏览器里
@@ -236,7 +239,7 @@ export function HomePage() {
       </section>
 
       <section className="section">
-        <div className="grid-2">
+        <div className="grid-3">
           <div className="card card--pad">
             <div className="kicker">Studio</div>
             <h2 className="h2" style={{ margin: '8px 0 10px' }}>
@@ -252,6 +255,21 @@ export function HomePage() {
               </button>
               <button className="btn btn--quiet" onClick={() => navigate('/gallery')}>
                 看我的作品
+              </button>
+            </div>
+          </div>
+          <div className="card card--pad">
+            <div className="kicker">AI Companion</div>
+            <h2 className="h2" style={{ margin: '8px 0 10px' }}>
+              AI 灵感设计师
+            </h2>
+            <p className="lede" style={{ fontSize: 15 }}>
+              一句话描述主题，模型给出受约束的设计参数，几何引擎把它画成真实图案，
+              再交回工坊继续改。模型不画图，也不能越过 Schema 的边界。
+            </p>
+            <div className="btn-row" style={{ marginTop: 16 }}>
+              <button className="btn btn--ghost" onClick={() => navigate('/ai')}>
+                试试 AI 灵感
               </button>
             </div>
           </div>

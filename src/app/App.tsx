@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 
 import { AboutPage } from '../pages/AboutPage';
 import { ExplorePage } from '../pages/ExplorePage';
@@ -6,12 +6,18 @@ import { GalleryPage } from '../pages/GalleryPage';
 import { HomePage } from '../pages/HomePage';
 import { PuzzlePage } from '../pages/PuzzlePage';
 import { StudioPage } from '../pages/StudioPage';
+import { Boundary } from '../components/Boundary';
 import { navigate, routeKey, useRoute } from './router';
+
+// The AI page carries the cloud SDK; keep it out of the first paint and out of
+// the critical path. If it fails to load, the rest of the app is unaffected.
+const AiPage = lazy(() => import('../pages/AiPage').then((m) => ({ default: m.AiPage })));
 
 const NAV = [
   { key: 'home', label: '首页', path: '/' },
   { key: 'puzzle', label: '一刀挑战', path: '/puzzle' },
   { key: 'studio', label: '剪纸工坊', path: '/studio' },
+  { key: 'ai', label: 'AI 灵感', path: '/ai' },
   { key: 'gallery', label: '我的作品', path: '/gallery' },
   { key: 'explore', label: '纸艺中的数学', path: '/explore', secondary: true },
   { key: 'about', label: '关于', path: '/about', secondary: true },
@@ -35,6 +41,20 @@ export function App() {
         return <GalleryPage />;
       case 'explore':
         return <ExplorePage />;
+      case 'ai':
+        return (
+          <Boundary
+            fallback={
+              <div className="empty" style={{ marginTop: 24 }}>
+                AI 模块加载失败（可能是网络问题）。一刀挑战、剪纸工坊与作品集不受影响。
+              </div>
+            }
+          >
+            <Suspense fallback={<div className="empty" style={{ marginTop: 24 }}>正在加载 AI 模块…</div>}>
+              <AiPage />
+            </Suspense>
+          </Boundary>
+        );
       case 'about':
         return <AboutPage />;
       default:

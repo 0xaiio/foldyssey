@@ -80,7 +80,10 @@ export function AboutPage() {
           </div>
           <div className="cap-row">
             <span>运行时 AI</span>
-            <span>未接入。网页不会调用任何大模型 API，也不需要 API Key</span>
+            <span>
+              已接入 WorkBuddy 云服务的模型通道（无需 API Key）。模型只输出受约束的设计参数，
+              图案仍由本机几何引擎计算；AI 不可用时，挑战、工坊、作品集照常使用
+            </span>
           </div>
         </div>
       </div>
@@ -106,7 +109,9 @@ export function AboutPage() {
             清除浏览器数据就会消失——想长期保留请导出 SVG / PNG。
           </p>
           <p className="note" style={{ marginTop: 8 }}>
-            页面不加载第三方字体、图片或统计脚本，断网也能完整游玩。
+            只有「AI 灵感」页会联网：它把你输入的那一句主题描述发给 WorkBuddy 云服务的模型，
+            不发送作品、进度或任何身份信息。其余页面不加载第三方字体、图片或统计脚本，
+            断网也能完整游玩。
           </p>
         </div>
       </div>
@@ -115,11 +120,14 @@ export function AboutPage() {
         <h3 className="h3">技术栈与开源依赖</h3>
         <p className="note" style={{ marginTop: 8 }}>
           React + TypeScript + Vite；SVG 渲染；<span className="mono">polygon-clipping</span>{' '}
-          提供多边形布尔运算（MIT）；Motion 提供界面过渡；Vitest 提供几何与关卡测试。
-          几何引擎、折叠模型、剪切语义、评分与导出全部为本项目自研代码。
+          提供多边形布尔运算（MIT）；<span className="mono">zod</span> 校验模型输出；Vitest 提供测试。
+          几何引擎、折叠模型、剪切语义、评分与导出全部为本项目自研代码。运行时的模型调用走
+          <span className="mono"> @tencent-ai/workbuddy-cloud-sdk</span>（WorkBuddy 云服务，
+          密钥保存在服务端，前端只有可公开的 endpoint 与 publishableKey）。
         </p>
         <p className="note" style={{ marginTop: 8 }}>
-          本项目由 WorkBuddy 辅助开发。开发过程中使用的编程模型与本网页运行时无关——页面不做任何模型调用。
+          本项目由 WorkBuddy 辅助开发。开发期使用的编程模型与「AI 灵感」页运行时调用的模型是两件事：
+          前者写代码，后者只生成受约束的设计参数，且每次调用都是用户在页面上主动触发的。
         </p>
       </div>
 
