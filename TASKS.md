@@ -51,7 +51,7 @@
 | REQ-DOC-002 | 任务追踪与里程碑记录 | P0 | 已完成 | 本文件 + `PROJECT_STATUS.md` | 提交表含真实 SHA | — |
 | REQ-BRAND-001 | 品牌统一 | P0 | 已完成 | `index.html`、`public/favicon.svg`、各页文案 | 首页 title 断言 | — |
 | REQ-QA-001 | 单元测试 | P0 | 已完成 | `src/tests/geometry.test.ts` | `29 passed` | — |
-| REQ-QA-002 | 浏览器端验证 | P1 | 已完成 | `tools/ui_check.py` | `19/19 checks passed`，`console issues: 0` | 仅 Chromium 内核 |
+| REQ-QA-002 | 浏览器端验证 | P1 | 已完成 | `tools/ui_check.py` | 本地 `23/23`、线上 `23/23`，`console issues: 0` | 仅 Chromium 内核 |
 
 ## 五、明确不做（不适用）
 

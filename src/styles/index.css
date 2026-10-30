@@ -1343,3 +1343,8 @@ input[type='range']::-moz-range-thumb {
     box-shadow: 0 26px 50px -38px rgba(36, 39, 37, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.55) inset;
   }
 }
+
+/* Chips inside a flex column would stretch to full width; keep them pill-sized. */
+.art-meta .chip {
+  align-self: flex-start;
+}

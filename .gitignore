@@ -39,3 +39,12 @@ tmp/
 .tmp/
 scratch/
 *.tsbuildinfo
+
+# WorkBuddy app marker for the published site
+.wbapp_*.genie
+
+# Local requirement document / scratch input
+ai/
+
+# Local agent workspace state
+.workbuddy/

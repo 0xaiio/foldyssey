@@ -213,12 +213,33 @@ def main() -> int:
     check("studio: export buttons", "导出 SVG" in (cdp.eval("document.body.innerText") or ""))
     cdp.shot("05-studio-desktop.png")
 
-    # ---- gallery ----
+    # save -> gallery round trip
+    saved = cdp.eval(
+        "(()=>{const b=[...document.querySelectorAll('button')].find(x=>x.textContent.includes('保存到我的作品'));"
+        "if(b){b.click();return true}return false})()"
+    )
+    check("studio: save button clickable", bool(saved))
+    time.sleep(0.6)
     cdp.eval("location.hash = '#/gallery'")
-    cdp.wait_for("!!document.querySelector('.level-title')", 6, "gallery")
-    time.sleep(0.4)
-    check("gallery: renders", "我的作品" in (cdp.eval("document.body.innerText") or ""))
+    cdp.wait_for("!!document.querySelector('.level-title')", 6, "gallery after save")
+    time.sleep(0.5)
+    cards = cdp.eval("document.querySelectorAll('.art-card').length")
+    check("gallery: saved artwork appears", (cards or 0) >= 1, str(cards))
     cdp.shot("06-gallery.png")
+
+    # load the saved artwork back into the studio
+    cdp.eval("location.hash = '#/gallery'")
+    cdp.wait_for("!!document.querySelector('.art-card')", 8, "gallery card")
+    time.sleep(0.3)
+    edited = cdp.eval(
+        "(()=>{const b=[...document.querySelectorAll('.art-card button')].find(x=>x.textContent.trim()==='编辑');"
+        "if(b){b.click();return true}return false})()"
+    )
+    check("gallery: artwork can be re-opened for editing", bool(edited))
+    time.sleep(0.8)
+    check("studio: loaded artwork renders",
+          (cdp.eval("document.querySelectorAll('.stage-card svg').length") or 0) >= 2,
+          str(cdp.eval("document.querySelectorAll('.stage-card svg').length")))
 
     # ---- explore ----
     cdp.eval("location.hash = '#/explore'")
@@ -257,6 +278,19 @@ def main() -> int:
     cdp.wait_for("!!document.querySelector('.studio')", 6, "mobile studio")
     time.sleep(0.9)
     cdp.shot("11-mobile-studio.png")
+
+    # ---- reduced motion must not break the flow ----
+    cdp.send(
+        "Emulation.setEmulatedMedia",
+        {"features": [{"name": "prefers-reduced-motion", "value": "reduce"}]},
+    )
+    cdp.eval("location.hash = '#/puzzle/roof'")
+    cdp.wait_for("document.body.innerText.includes('一刀终章')", 8, "reduced-motion puzzle")
+    time.sleep(0.9)
+    check("reduced motion: puzzle still renders",
+          (cdp.eval("document.querySelectorAll('.stage-card svg path').length") or 0) >= 4,
+          str(cdp.eval("document.querySelectorAll('.stage-card svg path').length")))
+    cdp.send("Emulation.setEmulatedMedia", {"features": []})
 
     noise = [i for i in cdp.issues if "favicon" not in i.lower()]
     print("\nconsole issues:", len(noise))

@@ -18,7 +18,7 @@
 |---|---|---|
 | `npx vitest run` | **29 passed**（新增 2 个导出用例） | `keeps the diamond hole as a separate sub-path`、`produces a stable downloadable file name` |
 | `npx vite build` | 成功 | JS 228.2 kB / gzip 77.3 kB；CSS 25.4 kB / gzip 6.4 kB |
-| `tools/ui_check.py`（Edge CDP，1440×980 + 390×844） | **19 / 19 PASS**，`console issues: 0` | 见下表明细 |
+| `tools/ui_check.py`（Edge CDP，1440×980 + 390×844） | **23 / 23 PASS**，`console issues: 0` | 见下表明细 |
 
 ### 浏览器检查明细
 
@@ -38,11 +38,15 @@
 | 12 | 滑块联动读数 | PASS（0.52） |
 | 13 | 工坊双画布 | PASS（2） |
 | 14 | 工坊导出按钮 | PASS |
-| 15 | 作品集页面 | PASS |
-| 16 | 数学页 5 张卡片 | PASS（5） |
-| 17 | 关于页能力边界 | PASS |
-| 18 | 移动端无横向溢出 | PASS（390 ≤ 390） |
-| 19 | 移动端画布宽度 | PASS（358 px） |
+| 15 | 工坊「保存到我的作品」可点 | PASS |
+| 16 | 作品集出现保存的作品 | PASS（1 件） |
+| 17 | 作品集「编辑」可回到工坊 | PASS |
+| 18 | 载入的作品正常渲染 | PASS（2 个画布） |
+| 19 | 数学页 5 张卡片 | PASS（5） |
+| 20 | 关于页能力边界 | PASS |
+| 21 | 移动端无横向溢出 | PASS（390 ≤ 390） |
+| 22 | 移动端画布宽度 | PASS（358 px） |
+| 23 | `prefers-reduced-motion` 下仍渲染 | PASS（8 条 path） |
 
 截图：`tools/shots/01-home-desktop.png` … `11-mobile-studio.png`（11 张）。
 
