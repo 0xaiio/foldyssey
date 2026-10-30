@@ -2,6 +2,8 @@
 
 > 只记录**实际执行过**的命令与结果。环境：Windows 11 / Node v22.22.2 / npm 10.9.7 /
 > Edge（Chromium）无头 / 2026-10-30（北京时间）。
+> 注：**2026-10-31 起本机的 Edge 与 Chromium 均无法启动**（见第八轮），
+> 浏览器级检查停在 10-30 的 45/45；之后改用不依赖浏览器的结构渲染测试。
 
 ## 2026-10-30 · 第一轮（几何核心完成）
 
@@ -312,3 +314,64 @@ grand-rosette 75.2 → 76.3 → 77.7 → 89.9 → 91.1 → 93.1    达标
 | 真机触控 | 仍只有 Chromium + 390px 视口 |
 | 图案库的键盘左右切换 | 目前只能用 Tab + Enter，未做方向键 |
 | 六重对称的真实实现 | 正方形无法折出 60°，只能八折近似并如实标注 |
+
+## 2026-10-31 · 第八轮（曲线剪 + 剪刀能力分级 / v0.7.0）
+
+环境：Windows 11 / Node v22.22.2 / 2026-10-31 01:20–01:30（北京时间）。
+**本轮没有可用的浏览器**：Edge 的两个版本（155/156）在本机启动即退出（`--version`、`--dump-dom`
+均无输出、进程 228 ms 结束），Chromium/Playwright 浏览器也都不在机器上。
+因此 `tools/ui_check.py` **未能重跑**；作为替代，新增了不依赖浏览器的结构渲染测试
+（`src/tests/ui.test.tsx`，`react-dom/server`），并保留 rasteriser（`tools/paperprobe.py`）
+对 16 关目标图案做像素级目视核验。
+
+| 命令 | 结果 | 备注 |
+|---|---|---|
+| `npx tsc --noEmit` | 通过（0 error） | — |
+| `npx vitest run` | **104 passed / 1 skipped** | 6 个文件全绿；耗时 46 s，其中 39 s 是 `assist.test.ts` 的全量诊断搜索（见下） |
+| `npm run build` | 成功 | JS 282.2 kB / gzip 99.3 kB；CSS 37.3 kB / gzip 8.5 kB |
+| `node tools/ai_smoke.mjs` | 通过 | 列到 5 个可选模型，流式回复 `{"ok":true}`，用 157 tokens |
+| `python tools/paperprobe.py`（16 关目标） | 目视通过 | 无破片、无 stray sliver；曲线关轮廓平滑 |
+
+### 1. 本轮新增测试（14 个）
+
+| 测试 | 断言 |
+|---|---|
+| `amplitude 0 is exactly the straight cut…` | 5 组参数下曲线与直线 `IoU=1`（1e-10）、纸形差 < 1e-9、移除面积相等 |
+| `the sampled polyline stays inside the certified chord bound` | 9 组 `(A, bends)`：闭式上界 ≤ 1.2e-3，且 20× 密采样实测 ≤ 1.35×上界 |
+| `the polygonised area converges to the refined area` | 三种 `bends` 的面积相对误差 < 2e-3 |
+| `a bigger bend removes more paper…` | 单调性 + 正弯曲只剩两端薄片 |
+| `the 8-fold pattern is invariant…` | 90° 旋转 / 镜像下逐点一致 |
+| `paper + removed is still the whole sheet…` | 4 种折法 × 3 种 `bends`，总面积 ≈ 4 |
+| `a curve that misses the packet is reported…` | warning 含「没有碰到」，纸形不变 |
+| `degenerate and out-of-range curves…` | NaN/Infinity 拒绝、`bends=2.0000001→2`、`amplitude=4→1.5` |
+| `the visible stroke is a real, finite path…` | 采样点有限、长度 > 0.5、误差 ≤ 容差 |
+| `one curve evaluation stays fast enough…` | ≤ 60 ms/次（实测 2.2 ms） |
+| `classifies by what the blade does…` | 四级判据 + 镂空不升级 + `A=0` 按直线计 |
+| `each rung is introduced only after the one below it` | 四级首次出现的索引严格递增；曲线只在阶段 5 |
+| `a curve level really has curved edges…` | 曲线关曲边占比 > 25%，无镂空的直线关 < 2% |
+| `every canonical curve value is reachable…` | 角度 0.5° / 距离 0.01 / 弯曲 0.01 / `bends ∈ {1,2,3}` |
+
+`src/tests/ui.test.tsx`（7 个）覆盖结构：16 关全部可渲染、分级条只有一个「本关」、
+曲线关有曲线控件而直线关没有、曲线画出 ≥ 8 段折线与 1 个菱形手柄、两刀关有 2 个标签页、
+侧栏 16 行、创作台有四种刀型。
+
+### 2. 实测数据
+
+| 项 | 数值 |
+|---|---|
+| 单次曲线求值（八折，`bends=3`） | 2.2 ms |
+| 单次直线求值（八折） | 0.38 ms |
+| 「差在哪？」（聚焦当前刀） | 角落 2 ms / 八角星 20 ms / 波边 48 ms / 花窗 72 ms / 藻井 216 ms |
+| 「差在哪？」（不限刀） | 藻井 1800 ms（UI 从不这样调用，仅测试使用） |
+| 一格滑块的最差 IoU（曲线关） | 波边 97.4% / 旋风 98.3% / 葫芦 98.0% / 花窗 97.2%（达标线 96%） |
+
+`assist.test.ts` 的 39 s 全部来自"6 次一键微调必须通关"这一条：16 关 × 6 次 × 无聚焦诊断，
+每次最多 126 次几何求值。这是测试的搜索成本，不是产品路径的成本（产品路径都带聚焦）。
+
+### 3. 未覆盖（本轮新增）
+
+| 项 | 原因 |
+|---|---|
+| `tools/ui_check.py` 重跑 | 本机无法启动 Chromium/Edge（启动即退出）；脚本已保留，需在有浏览器的环境执行 |
+| 曲线关的真机触控 | 同上；`touch-action: pan-y` + 手柄 `none` 的组合只做了代码层审查 |
+| 曲线在 SVG 导出中的视觉 | 导出路径来自同一几何，已由单测覆盖，但未做像素比对 |

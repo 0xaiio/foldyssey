@@ -17,7 +17,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     // Files are loaded serially: in a sandboxed shell the module runner races
     // on its temp cache when several workers start at once (EPERM), which
     // silently drops test files from the run. The suite is fast enough (<1s).

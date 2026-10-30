@@ -125,10 +125,10 @@ def main() -> int:
     time.sleep(1.2)
 
     check("home: title", "Foldyssey" in (cdp.eval("document.title") or ""), str(cdp.eval("document.title")))
-    check("home: eleven pattern cards", cdp.eval("document.querySelectorAll('.pattern-card').length") == 11,
+    check("home: sixteen pattern cards", cdp.eval("document.querySelectorAll('.pattern-card').length") == 16,
           str(cdp.eval("document.querySelectorAll('.pattern-card').length")))
-    check("home: all + four stage filters",
-          cdp.eval("document.querySelectorAll('.filter-chip').length") == 5,
+    check("home: all + five stage filters",
+          cdp.eval("document.querySelectorAll('.filter-chip').length") == 6,
           str(cdp.eval("document.querySelectorAll('.filter-chip').length")))
     check("home: library detail shows the fold/cut/unfold doc",
           all(k in (cdp.eval("document.body.innerText") or "") for k in ("折叠结构", "切割逻辑", "展开效果")))
@@ -337,6 +337,69 @@ def main() -> int:
     time.sleep(0.3)
     check("about: capability boundary table", "运行时 AI" in (cdp.eval("document.body.innerText") or ""))
     cdp.shot("08-about.png")
+
+
+    # ---- 阶段 5：曲线剪（分级条 / 曲线控件 / 手柄 / 还原标准解） ----
+    cdp.metrics(1440, 980)
+    cdp.eval("location.hash = '#/puzzle/scallop'")
+    cdp.wait_for("document.body.innerText.includes('波边')", 10, "scallop")
+    time.sleep(1.4)
+    rungs = cdp.eval("document.querySelectorAll('.ladder__rung').length") or 0
+    check("curve: ladder has four rungs", rungs == 4, str(rungs))
+    current = cdp.eval("document.querySelectorAll('.ladder__rung.is-current').length") or 0
+    check("curve: exactly one current rung", current == 1, str(current))
+    rung_text = cdp.eval("document.querySelector('.ladder__rung.is-current')?.innerText || ''") or ""
+    check("curve: current rung is the curve one", "曲线" in rung_text, rung_text[:30])
+    criterion = cdp.eval("document.querySelector('.ladder__criterion')?.innerText || ''") or ""
+    check("curve: criterion line present", "本关考什么" in criterion)
+    bounds = cdp.eval("document.querySelectorAll('.ladder__boundary').length") or 0
+    check("curve: four-level boundary details exist", bounds == 4, str(bounds))
+    has_bend = cdp.eval("!!document.querySelector('input[aria-label=\"弯曲幅度，0 为直线\"]')")
+    check("curve: bend slider exists", bool(has_bend))
+    presets = cdp.eval(
+        "document.querySelectorAll('.control .segmented')[1]?.querySelectorAll('button').length"
+    ) or 0
+    check("curve: three bend presets", presets == 3, str(presets))
+    spans = cdp.eval("document.querySelectorAll('.readout span').length") or 0
+    check("curve: four live readouts", spans == 4, str(spans))
+    bends = cdp.eval("document.querySelectorAll('[data-cut-role=bend]').length") or 0
+    check("curve: bend handle drawn", bends == 1, str(bends))
+    curve_path = cdp.eval(
+        "(()=>{const p=[...document.querySelectorAll('.stage-card svg g > g path')]"
+        ".map(x=>x.getAttribute('d')||'').sort((a,b)=>b.length-a.length)[0]||'';"
+        "return (p.match(/L/g)||[]).length})()"
+    ) or 0
+    check("curve: blade is a real polyline", curve_path > 8, str(curve_path))
+
+    cdp.wait_for(
+        "(()=>{const b=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()==='剪一剪');"
+        "return !!(b && !b.disabled)})()",
+        10,
+        "curve cut button",
+    )
+    # canonical solution: 0 deg / 0.99 / -0.18
+    set_range("切口法线角度（度）", "0")
+    set_range("切口与纸包中心的距离", "0.99")
+    set_range("弯曲幅度，0 为直线", "-0.18")
+    time.sleep(0.5)
+    live = cdp.eval("document.querySelector('.readout')?.innerText || ''") or ""
+    check("curve: readouts recompute with the sliders", "曲边占比" in live, live.replace("\n", " ")[:60])
+    cdp.eval("[...document.querySelectorAll('button')].find(x=>x.textContent.trim()==='剪一剪')?.click()")
+    time.sleep(2.8)
+    body = cdp.eval("document.body.innerText") or ""
+    check("curve: canonical solution clears the level", ("完全匹配" in body) or ("达标" in body))
+    check("curve: score card visible", "本刀评分" in body)
+    cdp.shot("15-curve-level.png")
+
+    # ---- 玉环：两刀关的两个标签页 ----
+    cdp.eval("location.hash = '#/puzzle/ring'")
+    cdp.wait_for("document.body.innerText.includes('玉环')", 10, "ring")
+    time.sleep(1.4)
+    tabs = cdp.eval("document.querySelectorAll('.cut-tab').length") or 0
+    check("ring: two cut tabs", tabs == 2, str(tabs))
+    ring_text = cdp.eval("document.querySelector('.ladder__rung.is-current')?.innerText || ''") or ""
+    check("ring: ladder says two cuts", "两刀" in ring_text, ring_text[:30])
+    cdp.shot("16-ring-level.png")
 
     # ---- mobile ----
     cdp.metrics(390, 844)

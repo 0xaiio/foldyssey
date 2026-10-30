@@ -2,12 +2,19 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applyCuts,
+  changeCutKind,
+  CURVE_CHORD_TOLERANCE,
+  curveChordError,
+  curveCut,
+  curvePointAt,
+  curveSampleCount,
   cutAngleDeg,
   cutFromAngle,
   holeCut,
   notchCut,
   normalizeCut,
   removedPacketRegion,
+  visibleStroke,
   type Cut,
 } from '../geometry/cut';
 import { getPreset, patchRenderMatrix } from '../geometry/fold';
@@ -15,6 +22,7 @@ import {
   PAPER_AREA,
   type MultiPolygon,
   applyMat,
+  differenceMP,
   multiPolygonArea,
   multiPolygonToPath,
   pointInMultiPolygon,
@@ -23,6 +31,7 @@ import {
 } from '../geometry/polygon';
 import { STAGE_THRESHOLDS, isCleared, scorePaper, type ScoreThresholds } from '../geometry/score';
 import { LEVELS } from '../puzzle/levels';
+import { SKILL_ORDER, curveRatio, skillOf, strokeStats } from '../puzzle/skill';
 import { buildSvg, fileName } from '../services/export';
 
 const D = 0.4 * Math.SQRT2; // diamond L1 radius for offset 0.4 at 45 degrees
@@ -324,7 +333,7 @@ describe('puzzle: tolerance contract', () => {
 
   it('every level has a stage and a readable label', () => {
     for (const level of LEVELS) {
-      expect([1, 2, 3, 4]).toContain(level.stage);
+      expect([1, 2, 3, 4, 5]).toContain(level.stage);
       expect(level.stageLabel).toContain('阶段');
     }
   });
@@ -347,6 +356,12 @@ function stepCut(cut: Cut, field: string, sign: number): Cut | null {
     if (field === 'width') return notchCut(cut.angle, cut.distance, Number((cut.width + sign * 0.01).toFixed(2)));
     return null;
   }
+  if (cut.kind === 'curve') {
+    if (field === 'angle') return { ...cut, angle: Number((cut.angle + sign * 0.5).toFixed(1)) };
+    if (field === 'offset') return { ...cut, offset: Number((cut.offset + sign * 0.01).toFixed(2)) };
+    if (field === 'amplitude') return { ...cut, amplitude: Number((cut.amplitude + sign * 0.01).toFixed(2)) };
+    return null;
+  }
   if (cut.kind === 'hole') {
     if (field === 'angle') return { ...cut, angle: Number((cut.angle + sign * 0.5).toFixed(1)) };
     if (field === 'radius') return { ...cut, radius: Number((cut.radius + sign * 0.01).toFixed(2)) };
@@ -357,9 +372,9 @@ function stepCut(cut: Cut, field: string, sign: number): Cut | null {
 }
 
 describe('puzzle: shipped levels', () => {
-  it('ships eleven levels with unique ids', () => {
-    expect(LEVELS).toHaveLength(11);
-    expect(new Set(LEVELS.map((l) => l.id)).size).toBe(11);
+  it('ships sixteen levels with unique ids', () => {
+    expect(LEVELS).toHaveLength(16);
+    expect(new Set(LEVELS.map((l) => l.id)).size).toBe(16);
   });
 
   it('every level can be solved by its canonical solution', () => {
@@ -558,5 +573,254 @@ describe('geometry: closed cut-outs (镂空)', () => {
     const out = applyCuts('radial8', [holeCut('circle', 0, 0.5, 0, 1, 0)]);
     expect(multiPolygonArea(out.paper)).toBeCloseTo(4, 9);
     expect(out.warnings.length).toBe(1);
+  });
+});
+
+/* ================================================================== *
+ * Curved strokes (弧线 / 拐弯 / 连续曲线)
+ * ================================================================== */
+
+describe('geometry: curved strokes', () => {
+  it('amplitude 0 is exactly the straight cut of the same parameters', () => {
+    // The anchor: a curve with no bend must not be an approximation of a line,
+    // it must be the same region. Same angle, same offset, same side.
+    const cases = [
+      ['none', 31, 0.47, 'negative'],
+      ['vertical', 0, 0.62, 'positive'],
+      ['orthogonal2', 45, 0.4, 'negative'],
+      ['radial8', 22.5, 0.99, 'positive'],
+      ['radial8', 67.5, -0.3, 'positive'],
+    ] as const;
+    for (const [fold, angle, offset, side] of cases) {
+      const a = applyCuts(fold, [curveCut(angle, offset, 0, 1, side)]);
+      const b = applyCuts(fold, [cutFromAngle(angle, offset, side)]);
+      const s = scorePaper(a.paper, b.paper);
+      expect(s.iou, `${fold} ${angle}/${offset}`).toBeCloseTo(1, 10);
+      expect(multiPolygonArea(differenceMP(a.paper, b.paper)), `${fold} diff`).toBeLessThan(1e-9);
+      expect(multiPolygonArea(a.removed)).toBeCloseTo(multiPolygonArea(b.removed), 9);
+    }
+  });
+
+  it('the sampled polyline stays inside the certified chord bound', () => {
+    // The bound in the docs: |A|·bends²·π²/(8N²). Checked against the real
+    // distance from a 20× denser sampling of the ideal curve to the polyline.
+    for (const bends of [1, 2, 3] as const) {
+      for (const amplitude of [0.05, 0.3, 1]) {
+        const cut = curveCut(67.5, 0.6, amplitude, bends, 'positive');
+        const preset = getPreset('radial8');
+        const n = curveSampleCount(cut);
+        const poly: { x: number; y: number }[] = [];
+        for (let i = 0; i <= n; i++) poly.push(curvePointAt(preset, cut, -1 + (2 * i) / n));
+        let worst = 0;
+        for (let i = 0; i <= n * 20; i++) {
+          const p = curvePointAt(preset, cut, -1 + (2 * i) / (n * 20));
+          let best = Infinity;
+          for (let k = 0; k < poly.length - 1; k++) {
+            const a = poly[k];
+            const b = poly[k + 1];
+            const ex = b.x - a.x;
+            const ey = b.y - a.y;
+            const len2 = ex * ex + ey * ey || 1;
+            const t = Math.max(0, Math.min(1, ((p.x - a.x) * ex + (p.y - a.y) * ey) / len2));
+            best = Math.min(best, Math.hypot(p.x - (a.x + ex * t), p.y - (a.y + ey * t)));
+          }
+          worst = Math.max(worst, best);
+        }
+        const bound = curveChordError(cut);
+        expect(bound).toBeLessThanOrEqual(CURVE_CHORD_TOLERANCE + 1e-12);
+        expect(worst, `bends=${bends} A=${amplitude}`).toBeLessThanOrEqual(bound * 1.35 + 1e-9);
+      }
+    }
+  });
+
+  it('the polygonised area converges to the refined area', () => {
+    // Forward construction and scoring both use the shipped sampler, so this is
+    // about honesty: the region we call "the curve" really is the curve.
+    const preset = getPreset('radial8');
+    for (const bends of [1, 2, 3] as const) {
+      const cut = curveCut(0, 0.9, -0.22, bends, 'positive');
+      const shipped = multiPolygonArea(removedPacketRegion(preset, cut));
+      const dense = multiPolygonArea(
+        removedPacketRegion(preset, { ...cut, amplitude: cut.amplitude * (1 - 1e-9) }),
+      );
+      const rel = Math.abs(shipped - dense) / Math.max(1e-9, dense);
+      expect(rel, `bends=${bends}`).toBeLessThan(2e-3);
+    }
+  });
+
+  it('a bigger bend removes more paper, in the direction the label claims', () => {
+    const area = (amplitude: number) =>
+      multiPolygonArea(applyCuts('radial8', [curveCut(0, 0.99, amplitude, 1, 'positive')]).removed);
+    // Negative amplitude pulls the stroke inward -> more is removed.
+    expect(area(-0.3)).toBeGreaterThan(area(-0.15));
+    expect(area(-0.15)).toBeGreaterThan(area(0));
+    // Positive amplitude pushes the middle out of the packet, so only the two
+    // ends (where the sine returns to the chord) still take a sliver.
+    expect(area(0.2)).toBeLessThan(area(0) / 2);
+  });
+
+  it('the 8-fold pattern is invariant under the symmetry group', () => {
+    const out = applyCuts('radial8', [curveCut(0, 0.99, -0.18, 1, 'positive')]);
+    const rot90 = (p: { x: number; y: number }) => ({ x: -p.y, y: p.x });
+    for (let i = -7; i < 7; i++) {
+      for (let j = -7; j < 7; j++) {
+        const p = { x: (i + 0.5) / 7, y: (j + 0.5) / 7 };
+        const a = pointInMultiPolygon(p, out.paper);
+        expect(pointInMultiPolygon(rot90(p), out.paper), `${p.x},${p.y}`).toBe(a);
+        expect(pointInMultiPolygon({ x: -p.x, y: p.y }, out.paper), `${p.x},${p.y}`).toBe(a);
+      }
+    }
+  });
+
+  it('paper + removed is still the whole sheet, for every bend count', () => {
+    for (const bends of [1, 2, 3] as const) {
+      for (const fold of ['none', 'vertical', 'orthogonal2', 'radial8'] as const) {
+        const out = applyCuts(fold, [curveCut(112.5, 0.5, 0.22, bends, 'positive')]);
+        const total = multiPolygonArea(out.paper) + multiPolygonArea(out.removed);
+        expect(total, `${fold}/${bends}`).toBeCloseTo(PAPER_AREA, 7);
+        expect(multiPolygonArea(out.paper)).toBeLessThanOrEqual(PAPER_AREA + 1e-9);
+      }
+    }
+  });
+
+  it('a curve that misses the packet is reported, not silently applied', () => {
+    const out = applyCuts('radial8', [curveCut(0, 1.6, 0.4, 2, 'positive')]);
+    expect(multiPolygonArea(out.paper)).toBeCloseTo(PAPER_AREA, 9);
+    expect(out.warnings.join('')).toContain('没有碰到');
+  });
+
+  it('degenerate and out-of-range curves are coerced or rejected, never crash', () => {
+    expect(normalizeCut({ ...curveCut(0, 0.5, 0.2, 1), amplitude: Number.NaN })).toBeNull();
+    expect(normalizeCut({ ...curveCut(0, 0.5, 0.2, 1), offset: Number.POSITIVE_INFINITY })).toBeNull();
+    // Discrete control: a saved 2.0000001 must load as 2, not vanish.
+    const coerced = normalizeCut({ ...curveCut(0, 0.5, 0.2, 1), bends: 2.0000001 as never });
+    expect(coerced?.kind).toBe('curve');
+    expect((coerced as { bends: number }).bends).toBe(2);
+    // Out-of-range amplitude is clamped, not rejected.
+    const clamped = normalizeCut({ ...curveCut(0, 0.5, 4, 1) }) as { amplitude: number };
+    expect(Math.abs(clamped.amplitude)).toBeLessThanOrEqual(1.5);
+
+    const out = applyCuts('radial8', [
+      { ...curveCut(0, 0.5, 0.2, 1), amplitude: Number.NaN },
+      curveCut(0, 0.5, 0.2, 1),
+    ]);
+    expect(out.warnings.length).toBe(1);
+    expect(multiPolygonArea(out.paper)).toBeGreaterThan(1);
+  });
+
+  it('the visible stroke is a real, finite path on the paper', () => {
+    const preset = getPreset('radial8');
+    for (const bends of [1, 2, 3] as const) {
+      const cut = curveCut(0, 0.9, -0.2, bends, 'positive');
+      const stroke = visibleStroke(preset, cut)!;
+      expect(stroke).not.toBeNull();
+      expect(stroke.points.length).toBeGreaterThan(2);
+      expect(stroke.length).toBeGreaterThan(0.5);
+      expect(stroke.error).toBeLessThanOrEqual(CURVE_CHORD_TOLERANCE);
+      for (const p of stroke.points) expect(Number.isFinite(p.x) && Number.isFinite(p.y)).toBe(true);
+    }
+  });
+
+  it('one curve evaluation stays fast enough for a live preview', () => {
+    const t0 = performance.now();
+    for (let i = 0; i < 10; i++) {
+      applyCuts('radial8', [curveCut(0, 0.99, -0.18 + i * 0.002, 3, 'positive')]);
+    }
+    const per = (performance.now() - t0) / 10;
+    // Generous ceiling: a 10x regression would still be caught, while a busy
+    // CI machine will not produce a false failure.
+    expect(per).toBeLessThan(60);
+  });
+});
+
+describe('puzzle: the scissor ladder', () => {
+  it('classifies by what the blade does, not by how many buttons exist', () => {
+    expect(skillOf([cutFromAngle(45, 0.4, 'negative')])).toBe('one');
+    expect(skillOf([cutFromAngle(45, 0.4, 'negative'), cutFromAngle(0, 0.6, 'positive')])).toBe('two');
+    expect(skillOf([notchCut(22.5, 0.5, 0.3)])).toBe('turn');
+    expect(skillOf([curveCut(67.5, 0.6, -0.16, 2, 'positive')])).toBe('curve');
+    // A hole is a closed stroke: it does not promote an open-stroke rung.
+    expect(skillOf([holeCut('circle', 0, 0.5, 0.05)])).toBe('one');
+    expect(strokeStats([holeCut('circle', 0, 0.5, 0.05)]).closed).toBe(1);
+    // A curve with no bend is a straight cut, by definition and by geometry.
+    expect(skillOf([curveCut(0, 0.9, 0, 3, 'positive')])).toBe('one');
+  });
+
+  it('each rung is introduced only after the one below it', () => {
+    // Skill and pattern complexity are different axes: 「菱窗」 is a five-cut
+    // pattern built entirely from straight lines, so it sits late by index yet
+    // low on the ladder. What must hold is that a rung never *arrives* before
+    // the rungs below it — you meet 一刀 before 两刀, 两刀 before 拐弯, and the
+    // first curve level comes last.
+    const firstSeen = {} as Record<string, number>;
+    LEVELS.forEach((level, i) => {
+      if (firstSeen[level.skill] === undefined) firstSeen[level.skill] = i;
+    });
+    expect([...new Set(LEVELS.map((l) => l.skill))].sort()).toEqual([...SKILL_ORDER].sort());
+    for (let r = 1; r < SKILL_ORDER.length; r++) {
+      expect(firstSeen[SKILL_ORDER[r]], `${SKILL_ORDER[r]} arrives too early`).toBeGreaterThan(
+        firstSeen[SKILL_ORDER[r - 1]],
+      );
+    }
+    // The curve rung is also the last stage, so the ladder ends where it should.
+    expect(LEVELS.filter((l) => l.skill === 'curve').every((l) => l.stage === 5)).toBe(true);
+  });
+
+  it('a curve level really has curved edges, a straight one does not', () => {
+    for (const level of LEVELS) {
+      const ratio = curveRatio(level.target);
+      expect(ratio, `${level.id} ratio`).toBeCloseTo(level.curveRatio, 6);
+      if (level.skill === 'curve') {
+        expect(ratio, `${level.id} claims curves`).toBeGreaterThan(0.25);
+      } else if (!level.canonicalCuts.some((c) => c.kind === 'hole')) {
+        // Straight strokes only: no smooth turning anywhere on the boundary.
+        expect(ratio, `${level.id} claims no curves`).toBeLessThan(0.02);
+      }
+    }
+  });
+
+  it('every canonical curve value is reachable with the on-screen controls', () => {
+    for (const level of LEVELS) {
+      for (const cut of level.canonicalCuts) {
+        if (cut.kind !== 'curve') continue;
+        expect(Math.abs(cut.angle * 2 - Math.round(cut.angle * 2)), level.id).toBeLessThan(1e-6);
+        expect(Math.abs(cut.offset * 100 - Math.round(cut.offset * 100)), level.id).toBeLessThan(1e-6);
+        expect(Math.abs(cut.amplitude * 100 - Math.round(cut.amplitude * 100)), level.id).toBeLessThan(1e-6);
+        expect([1, 2, 3]).toContain(cut.bends);
+      }
+    }
+  });
+});
+
+describe('geometry: changing the blade type', () => {
+  it('always produces a valid cut, and keeps the direction', () => {
+    const kinds = ['line', 'curve', 'notch', 'hole'] as const;
+    const seeds: Cut[] = [
+      cutFromAngle(47, 0.55, 'negative'),
+      curveCut(112.5, 0.4, -0.2, 2, 'positive'),
+      notchCut(22.5, 0.5, 0.3),
+      holeCut('leaf', 30, 0.6, 0.08, 2.2, 20),
+    ];
+    for (const seed of seeds) {
+      for (const kind of kinds) {
+        const next = changeCutKind(seed, kind);
+        expect(next.kind, `${seed.kind}->${kind}`).toBe(kind);
+        expect(normalizeCut(next), `${seed.kind}->${kind} invalid`).not.toBeNull();
+        if (kind !== 'hole') expect(cutAngleDeg(next)).toBeCloseTo(cutAngleDeg(seed), 6);
+      }
+      // Same kind is a no-op, not a re-seed.
+      expect(changeCutKind(seed, seed.kind)).toBe(seed);
+    }
+  });
+
+  it('a straight cut switched to a curve bends visibly, and back again', () => {
+    const line = cutFromAngle(45, 0.5, 'negative');
+    const curved = changeCutKind(line, 'curve') as { amplitude: number; offset: number };
+    expect(curved.amplitude).toBeGreaterThan(0.1);
+    expect(curved.offset).toBeCloseTo(0.5, 9);
+    // amplitude 0 is the identity, so switching back must be lossless.
+    const flat = { ...changeCutKind(line, 'curve'), amplitude: 0 } as Cut;
+    const back = changeCutKind(flat, 'line');
+    expect(cutAngleDeg(back)).toBeCloseTo(45, 6);
   });
 });

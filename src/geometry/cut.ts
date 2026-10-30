@@ -1,7 +1,7 @@
 /**
  * Cut semantics on a folded packet.
  *
- * Three primitives, all physically executable with scissors:
+ * Four primitives, all physically executable with scissors:
  *
  *  1. `line`  — a straight cut. The removed area is a half-plane
  *     `{ p : n·p < offset }` or `{ p : n·p > offset }`, |n| = 1.
@@ -15,11 +15,35 @@
  *     **ring of n holes**, which is where the fine texture of a real 团花 /
  *     snowflake comes from. Not a "one straight cut" — it is scissor work, and
  *     it is labelled that way in the UI.
+ *  4. `curve` — a *curved* stroke: the blade bends while it travels. Same
+ *     angle/offset/side convention as `line`, plus `amplitude` (how far it
+ *     bends away from its chord) and `bends` (how many half waves: 1 = 弧线,
+ *     2 = S 形一次拐弯, 3 = 连续波浪). With `amplitude = 0` it is *exactly*
+ *     the straight cut, which is the invariant the tests pin down.
  *
  * The removed area (never a zero-width line!) is intersected with the packet,
  * then pulled back through every patch's inverse isometry, so every physical
  * layer loses its own pre-image of the same cut. The union of the surviving
  * patch regions is the unfolded paper.
+ *
+ * Why a curve is still *exact*
+ * ----------------------------
+ * A curve cannot be represented exactly by a polygon engine, so it is sampled
+ * into a chord polygon and the error is **bounded in closed form**, not waved
+ * away. For (u, v) local coordinates the stroke is the graph
+ *
+ *     v = offset + A·sin(bends·π·(u − uMin)/(uMax − uMin))          (*)
+ *
+ * i.e. a single-valued function of u. Two consequences:
+ *
+ *   - the removed region is "one side of a graph", the exact generalisation of
+ *     the half-plane rule, and it can never self-intersect (a path that loops
+ *     or doubles back cannot be cut this way — see `docs/SCISSOR_CURVES.md`);
+ *   - the chord error of an N-segment sampling is bounded by
+ *     `|A|·bends²·π² / (8N²)` (standard interpolation bound with
+ *     |v''| ≤ A·(bends·π/L)²), and `curveSampleCount()` picks N so that this
+ *     bound is ≤ `CURVE_CHORD_TOLERANCE`. Both the target and the player's
+ *     attempt go through the same sampler, so scoring compares like with like.
  */
 
 import { getPreset, type FoldPreset, type PaperPatch } from './fold';
@@ -31,9 +55,11 @@ import {
   differenceMP,
   intersectMP,
   multiPolygonArea,
+  pointInRing,
+  ringArea,
   unionMP,
 } from './polygon';
-import { type Vec2 } from './vec';
+import { type Vec2, clamp } from './vec';
 
 export type CutRemovedSide = 'negative' | 'positive';
 
@@ -84,10 +110,44 @@ export type HoleCut = {
   rotation: number;
 };
 
-export type Cut = LineCut | NotchCut | HoleCut;
+export type Cut = LineCut | NotchCut | HoleCut | CurveCut;
 
 /** Backwards-compatible alias: the straight-line primitive. */
 export type StraightCut = LineCut;
+
+/* ------------------------------------------------------------------ *
+ * Curved strokes
+ * ------------------------------------------------------------------ */
+
+/** How many half waves a curved stroke has: 1 arc, 2 S, 3 double bend. */
+export const CURVE_BENDS = [1, 2, 3] as const;
+export type CurveBends = (typeof CURVE_BENDS)[number];
+
+/**
+ * A stroke that bends while it travels.
+ *
+ * `angle`, `offset` and `side` mean exactly what they mean for `line`: the
+ * stroke is perpendicular to the normal at `angle`, sits `offset` away from the
+ * packet centre along that normal, and the chosen half is removed. `amplitude`
+ * and `bends` bend that straight stroke:
+ *
+ *     v = offset + amplitude · sin(bends · π · t),  t = 0..1 across the packet
+ *
+ * so amplitude = 0 is the straight cut, bends = 1 is one bulge (弧线), 2 is an
+ * S with one inflection (拐弯), 3 is a double wave (连续曲线).
+ */
+export type CurveCut = {
+  kind: 'curve';
+  /** Direction of the normal, degrees — same convention as `LineCut`. */
+  angle: number;
+  /** Signed distance of the stroke's chord from the packet centre. */
+  offset: number;
+  /** Signed bulge away from the chord. 0 = straight, ±1 = a full paper unit. */
+  amplitude: number;
+  /** Number of half waves across the packet: 1 arc, 2 S, 3 wave. */
+  bends: CurveBends;
+  removedSide: CutRemovedSide;
+};
 
 export type PatchOutcome = {
   patch: PaperPatch;
@@ -114,6 +174,21 @@ export const CUT_OFFSET_LIMIT = 1.7;
 export const BIG_BOX = 4;
 /** How far the notch arms extend beyond the apex before clipping. */
 export const NOTCH_REACH = 1.4;
+
+/** Largest allowed deviation between a sampled curve and the ideal graph. */
+export const CURVE_CHORD_TOLERANCE = 1.2e-3;
+/** Amplitude slider range, in paper units. */
+export const CURVE_AMPLITUDE_LIMIT = 1;
+/** Samples are never fewer than this (a straight-ish stroke still needs ends). */
+const CURVE_MIN_SAMPLES = 24;
+/** Hard cap: 192 segments already put the error at 4·10⁻⁴ for the boldest curve. */
+const CURVE_MAX_SAMPLES = 192;
+/** The wall that closes the removed half of the graph, far outside the packet. */
+const CURVE_WALL = 6;
+/** How far the stroke's ends extend past the packet's own span. */
+const CURVE_END_EXTENSION = 0.6;
+/** Below this the stroke is treated as straight (and equals a `line` cut). */
+const CURVE_FLAT_EPS = 1e-9;
 
 const poly = (ring: Ring): MultiPolygon => [[ring]];
 
@@ -144,6 +219,64 @@ export function holeCut(
 ): HoleCut {
   return { kind: 'hole', shape, angle, radius, size, stretch, rotation };
 }
+
+export function curveCut(
+  angleDeg: number,
+  offset: number,
+  amplitude: number,
+  bends: CurveBends = 1,
+  removedSide: CutRemovedSide = 'positive',
+): CurveCut {
+  return {
+    kind: 'curve',
+    angle: angleDeg,
+    offset,
+    amplitude,
+    bends: clampBends(bends),
+    removedSide,
+  };
+}
+
+export function clampBends(value: number): CurveBends {
+  const n = Math.round(value);
+  if (n <= 1) return 1;
+  if (n >= 3) return 3;
+  return n as CurveBends;
+}
+
+/**
+ * Convert a cut to another primitive, carrying over whatever still has a
+ * meaning: the direction is always kept, and the distance to the centre is
+ * carried across `offset` / `distance` / `radius`.
+ *
+ * Used by the studio's 「刀型」 switch. Converting to `curve` starts with a
+ * visible bend (0.22) on purpose: a curve with amplitude 0 is a straight cut,
+ * so a switch that changed nothing on screen would look broken.
+ */
+export function changeCutKind(cut: Cut, kind: Cut['kind']): Cut {
+  if (cut.kind === kind) return cut;
+  const angle = cutAngleDeg(cut);
+  const side: CutRemovedSide =
+    cut.kind === 'line' || cut.kind === 'curve' ? cut.removedSide : 'positive';
+  const reach =
+    cut.kind === 'line' || cut.kind === 'curve'
+      ? cut.offset
+      : cut.kind === 'notch'
+        ? cut.distance
+        : cut.radius;
+  const inward = Math.abs(reach);
+  if (kind === 'line') {
+    return cutFromAngle(angle, clamp(reach, -CUT_OFFSET_LIMIT, CUT_OFFSET_LIMIT), side);
+  }
+  if (kind === 'curve') {
+    return curveCut(angle, clamp(reach, -CUT_OFFSET_LIMIT, CUT_OFFSET_LIMIT), 0.22, 1, side);
+  }
+  if (kind === 'notch') {
+    return notchCut(angle, clamp(inward, 0.1, 1.2), 0.3);
+  }
+  return holeCut('circle', angle, clamp(inward, 0, 1.05), 0.07, 1, 0);
+}
+
 
 const HOLE_EXPONENT: Record<HoleShape, number> = {
   diamond: 1,
@@ -234,6 +367,23 @@ export function normalizeCut(cut: Cut | null | undefined): Cut | null {
     if (width <= 1e-4) return null;
     return { kind: 'notch', angle, distance, width };
   }
+  if (kind === 'curve') {
+    const { angle, offset, amplitude, bends, removedSide } = cut as CurveCut;
+    if (![angle, offset, amplitude, bends].every((v) => typeof v === 'number' && Number.isFinite(v))) {
+      return null;
+    }
+    if (removedSide !== 'negative' && removedSide !== 'positive') return null;
+    // Coerce instead of failing: the bend count is a discrete control, and a
+    // document saved with `2.0000001` should load rather than disappear.
+    return {
+      kind: 'curve',
+      angle,
+      offset,
+      amplitude: Math.max(-1.5, Math.min(1.5, amplitude)),
+      bends: clampBends(bends),
+      removedSide,
+    };
+  }
   if (kind !== 'line') return null;
   const { nx, ny, offset, removedSide } = cut as LineCut;
   if (![nx, ny, offset].every((v) => typeof v === 'number' && Number.isFinite(v))) return null;
@@ -246,6 +396,7 @@ export function normalizeCut(cut: Cut | null | undefined): Cut | null {
 export const isLineCut = (cut: Cut): cut is LineCut => cut.kind === 'line';
 export const isNotchCut = (cut: Cut): cut is NotchCut => cut.kind === 'notch';
 export const isHoleCut = (cut: Cut): cut is HoleCut => cut.kind === 'hole';
+export const isCurveCut = (cut: Cut): cut is CurveCut => cut.kind === 'curve';
 
 /** Angle of the cut axis in degrees, folded into [0, 180). */
 export function cutAngleDeg(cut: Cut): number {
@@ -261,6 +412,14 @@ export function describeCut(cut: Cut): string {
   }
   if (cut.kind === 'notch') {
     return `折剪：方向 ${Math.round(cut.angle)}°，顶点距中心 ${cut.distance.toFixed(2)}，张口 ${cut.width.toFixed(2)}`;
+  }
+  if (cut.kind === 'curve') {
+    const bend = cut.bends === 1 ? '一段弧' : cut.bends === 2 ? 'S 形，一个拐点' : '连续波浪，两个拐点';
+    const shape = Math.abs(cut.amplitude) < 0.01 ? '直' : cut.amplitude > 0 ? '外凸' : '内凹';
+    return (
+      `曲线：法线 ${Math.round(cut.angle * 2) / 2}°，距中心 ${cut.offset.toFixed(2)}，` +
+      `弯曲 ${cut.amplitude >= 0 ? '+' : '−'}${Math.abs(cut.amplitude).toFixed(2)}（${shape}·${bend}）`
+    );
   }
   const a = Math.round(cutAngleDeg(cut) * 2) / 2;
   const side = cut.removedSide === 'positive' ? '法向正侧' : '法向负侧';
@@ -331,6 +490,151 @@ export function clipRayToRing(ring: Ring, origin: Vec2, dir: Vec2): number {
   return best;
 }
 
+/* ------------------------------------------------------------------ *
+ * Curved strokes: frame, sampling, certified error bound, region
+ * ------------------------------------------------------------------ */
+
+/** Orthonormal frame of a curved stroke, in packet coordinates. */
+type CurveFrame = {
+  /** Along the stroke (perpendicular to the normal). */
+  ux: number;
+  uy: number;
+  /** The normal, identical to `(cos angle, sin angle)` of a `LineCut`. */
+  vx: number;
+  vy: number;
+  /** Extent of the *packet* along u; the wave spans exactly this. */
+  uMin: number;
+  uMax: number;
+};
+
+/**
+ * The wave is normalised to the packet's own span along the stroke, not to a
+ * fixed world length. Rationale: `bends = 2` must mean "one full S across the
+ * paper in your hand" in every fold preset, otherwise the same slider position
+ * would produce a different pattern per level.
+ */
+function curveFrame(preset: FoldPreset, cut: CurveCut): CurveFrame {
+  const rad = (cut.angle * Math.PI) / 180;
+  const vx = Math.cos(rad);
+  const vy = Math.sin(rad);
+  const ux = -vy;
+  const uy = vx;
+  let uMin = Infinity;
+  let uMax = -Infinity;
+  for (const p of preset.packet) {
+    const t = ux * p.x + uy * p.y;
+    if (t < uMin) uMin = t;
+    if (t > uMax) uMax = t;
+  }
+  if (!(uMax - uMin > 1e-9)) {
+    uMin -= 1;
+    uMax += 1;
+  }
+  return { ux, uy, vx, vy, uMin, uMax };
+}
+
+/** The ideal stroke at normalised position `t ∈ [-1, 1]`, in packet coords. */
+export function curvePointAt(preset: FoldPreset, cut: CurveCut, t: number): Vec2 {
+  const f = curveFrame(preset, cut);
+  const u = f.uMin + ((t + 1) / 2) * (f.uMax - f.uMin);
+  const v =
+    cut.offset + cut.amplitude * Math.sin((cut.bends * Math.PI * (t + 1)) / 2);
+  return { x: f.ux * u + f.vx * v, y: f.uy * u + f.vy * v };
+}
+
+/** How many chords the stroke is sampled into, and the error that buys. */
+export function curveSampleCount(cut: Pick<CurveCut, 'amplitude' | 'bends'>): number {
+  const a = Math.abs(cut.amplitude);
+  if (a < CURVE_FLAT_EPS) return 2;
+  const need = Math.PI * cut.bends * Math.sqrt(a / (8 * CURVE_CHORD_TOLERANCE));
+  let n = Math.max(CURVE_MIN_SAMPLES, Math.min(CURVE_MAX_SAMPLES, Math.ceil(need)));
+  if (n % 2 === 1) n += 1;
+  return n;
+}
+
+/** Maximum distance between the sampled polyline and the ideal curve. */
+export function curveChordError(cut: Pick<CurveCut, 'amplitude' | 'bends'>, samples?: number): number {
+  const n = samples ?? curveSampleCount(cut);
+  if (n < 2) return 0;
+  return (Math.abs(cut.amplitude) * cut.bends ** 2 * Math.PI ** 2) / (8 * n ** 2);
+}
+
+/** The sampled stroke, in packet coordinates, from t = -1 to t = +1. */
+export function curvePolyline(preset: FoldPreset, cut: CurveCut, samples?: number): Ring {
+  const n = samples ?? curveSampleCount(cut);
+  const out: Ring = [];
+  for (let i = 0; i <= n; i++) out.push(curvePointAt(preset, cut, -1 + (2 * i) / n));
+  return out;
+}
+
+/** Where the stroke's bulge peaks (the direct-manipulation handle sits here). */
+export function curvePeak(preset: FoldPreset, cut: CurveCut): Vec2 {
+  const t = 1 / cut.bends - 1;
+  return curvePointAt(preset, cut, t);
+}
+
+function ensureCCW(ring: Ring): Ring {
+  return ringArea(ring) < 0 ? [...ring].reverse() : ring;
+}
+
+/**
+ * The removed region of a curved stroke: everything on the chosen side of the
+ * graph (*), clipped to the packet.
+ *
+ * The polygon is the graph plus a wall far outside the packet, so the ring is
+ * always simple: the graph is single-valued in u and the wall is outside every
+ * possible value of `offset + amplitude`.
+ */
+export function curveRegion(preset: FoldPreset, cut: CurveCut): MultiPolygon {
+  const f = curveFrame(preset, cut);
+  const n = curveSampleCount(cut);
+  const graph: Ring = [];
+  for (let i = 0; i <= n; i++) {
+    const t = -1 + (2 * i) / n;
+    const u = f.uMin + ((t + 1) / 2) * (f.uMax - f.uMin);
+    const v = cut.offset + cut.amplitude * Math.sin((cut.bends * Math.PI * (t + 1)) / 2);
+    graph.push({ x: f.ux * u + f.vx * v, y: f.uy * u + f.vy * v });
+  }
+  const toWorld = (u: number, v: number): Vec2 => ({
+    x: f.ux * u + f.vx * v,
+    y: f.uy * u + f.vy * v,
+  });
+  const uLo = f.uMin - CURVE_END_EXTENSION;
+  const uHi = f.uMax + CURVE_END_EXTENSION;
+  const wall = cut.removedSide === 'positive' ? CURVE_WALL : -CURVE_WALL;
+  // Trace the graph one way, then close through a wall outside the packet. The
+  // winding differs per side, so the ring is normalised to CCW afterwards.
+  const ring: Ring = [...graph, toWorld(uHi, wall), toWorld(uLo, wall)];
+  if (ring.length < 3) return [];
+  return intersectMP(poly(preset.packet), poly(ensureCCW(ring)));
+}
+
+/** The part of the stroke that lies inside the packet, for drawing. */
+export type VisibleStroke = {
+  points: Ring;
+  /** Index of the first / last sample inside the packet. */
+  from: number;
+  to: number;
+  /** Total length of the visible stroke, in paper units. */
+  length: number;
+  /** Certified deviation from the ideal curve. */
+  error: number;
+};
+
+export function visibleStroke(preset: FoldPreset, cut: CurveCut): VisibleStroke | null {
+  const pts = curvePolyline(preset, cut);
+  const inside = pts.map((p) => pointInRing(p, preset.packet));
+  const first = inside.indexOf(true);
+  const last = inside.lastIndexOf(true);
+  if (first < 0 || last <= first) return null;
+  const slice = pts.slice(first, last + 1);
+  let length = 0;
+  for (let i = 1; i < slice.length; i++) {
+    length += Math.hypot(slice[i].x - slice[i - 1].x, slice[i].y - slice[i - 1].y);
+  }
+  return { points: slice, from: first, to: last, length, error: curveChordError(cut) };
+}
+
 /** The removed region, restricted to the folded packet (packet coordinates). */
 export function removedPacketRegion(preset: FoldPreset, cut: Cut): MultiPolygon {
   const norm = normalizeCut(cut);
@@ -346,6 +650,10 @@ export function removedPacketRegion(preset: FoldPreset, cut: Cut): MultiPolygon 
     const tri = notchTriangle(norm);
     if (tri.length < 3) return [];
     return intersectMP(poly(preset.packet), poly(tri));
+  }
+
+  if (norm.kind === 'curve') {
+    return curveRegion(preset, norm);
   }
 
   const rect: Ring = [

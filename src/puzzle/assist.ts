@@ -16,7 +16,15 @@ import type { FoldPresetId } from '../geometry/fold';
 import type { MultiPolygon } from '../geometry/polygon';
 import { type ScoreThresholds, scorePaper } from '../geometry/score';
 
-export type EditableField = 'angle' | 'offset' | 'distance' | 'width' | 'radius' | 'size' | 'rotation';
+export type EditableField =
+  | 'angle'
+  | 'offset'
+  | 'distance'
+  | 'width'
+  | 'radius'
+  | 'size'
+  | 'rotation'
+  | 'amplitude';
 
 /** One step of the on-screen slider, per field. */
 export const STEP: Record<EditableField, number> = {
@@ -27,6 +35,7 @@ export const STEP: Record<EditableField, number> = {
   radius: 0.01,
   size: 0.005,
   rotation: 1,
+  amplitude: 0.01,
 };
 
 export const FIELD_LABEL: Record<EditableField, string> = {
@@ -37,6 +46,7 @@ export const FIELD_LABEL: Record<EditableField, string> = {
   radius: '距中心',
   size: '半宽',
   rotation: '转角',
+  amplitude: '弯曲',
 };
 
 export type Nudge = {
@@ -63,6 +73,7 @@ export type Diagnosis = {
 function fieldsOf(cut: Cut): EditableField[] {
   if (cut.kind === 'line') return ['angle', 'offset'];
   if (cut.kind === 'notch') return ['angle', 'distance', 'width'];
+  if (cut.kind === 'curve') return ['angle', 'offset', 'amplitude'];
   return ['angle', 'radius', 'size', 'rotation'];
 }
 
@@ -72,6 +83,12 @@ function valueOf(cut: Cut, field: EditableField): number {
   }
   if (cut.kind === 'notch') {
     return field === 'angle' ? cut.angle : field === 'distance' ? cut.distance : cut.width;
+  }
+  if (cut.kind === 'curve') {
+    if (field === 'angle') return cut.angle;
+    if (field === 'offset') return cut.offset;
+    if (field === 'amplitude') return cut.amplitude;
+    return Number.NaN;
   }
   if (field === 'angle') return cut.angle;
   if (field === 'radius') return cut.radius;
@@ -110,6 +127,26 @@ export function applyStep(cut: Cut, field: EditableField, delta: number, steps =
     if (field === 'width') {
       const v = Math.max(0.05, Math.min(1.2, cut.width + d));
       return notchCut(cut.angle, cut.distance, Number(v.toFixed(2)));
+    }
+    return null;
+  }
+  if (cut.kind === 'curve') {
+    // Same ranges as the on-screen sliders, and clamp instead of wrapping: a
+    // wrapped angle would flip which side of the stroke is removed.
+    if (field === 'angle') {
+      const deg = Math.max(0, Math.min(179.5, cut.angle + d));
+      if (Math.abs(deg - cut.angle) < 1e-9) return null;
+      return { ...cut, angle: Number(deg.toFixed(1)) };
+    }
+    if (field === 'offset') {
+      const v = Math.max(-1.6, Math.min(1.6, cut.offset + d));
+      if (Math.abs(v - cut.offset) < 1e-9) return null;
+      return { ...cut, offset: Number(v.toFixed(2)) };
+    }
+    if (field === 'amplitude') {
+      const v = Math.max(-1, Math.min(1, cut.amplitude + d));
+      if (Math.abs(v - cut.amplitude) < 1e-9) return null;
+      return { ...cut, amplitude: Number(v.toFixed(2)) };
     }
     return null;
   }

@@ -6,16 +6,22 @@
  * target. That makes "solvable" a fact of the data rather than a claim.
  *
  * Canonical solutions only use values reachable with the on-screen controls
- * (half-degree angles, two-decimal offsets), so a player can reproduce them.
+ * (half-degree angles, two-decimal offsets/amplitudes), so a player can
+ * reproduce them.
  *
- * Two tiers of levels:
- *   - 一刀关（cutCount = 1）：严格一条直线，对应「一刀挑战」的原始承诺。
- *   - 团花关（cutCount = 2–3）：同一套八折纸包上剪 2–3 条直线，目标更繁复，
- *     UI 会明确显示「N 刀」，不会被说成一刀。
+ * Two labels are **computed, never written**:
+ *   - `cutCount` / `cutSummary` — from the canonical cuts;
+ *   - `skill` — the 「剪刀能力」 rung (`puzzle/skill.ts`), and `curveRatio`,
+ *     the measured share of the target's boundary that is smoothly curved.
+ *     A level cannot claim to be a curve level while shipping straight edges.
+ *
+ * The ladder (see docs/SCISSOR_CURVES.md):
+ *   一刀 → 两刀 → 拐弯 → 曲线
  */
 
 import {
   applyCuts,
+  curveCut,
   cutFromAngle,
   holeCut,
   notchCut,
@@ -24,6 +30,7 @@ import {
 import type { FoldPresetId } from '../geometry/fold';
 import { type MultiPolygon, multiPolygonArea } from '../geometry/polygon';
 import { type ScoreThresholds, STAGE_THRESHOLDS } from '../geometry/score';
+import { curveRatio, type ScissorSkill, skillOf } from './skill';
 
 export type HintSet = {
   observe: string;
@@ -34,12 +41,14 @@ export type HintSet = {
 export type PatternTier = 'basic' | 'radial' | 'floral';
 
 /**
- * Three stages, each with its own tolerance budget:
+ * Five stages, each with its own tolerance budget:
  *   1 看懂   目标图形与折法的关系；容差最宽，指引默认展开
  *   2 对齐   开始要自己找参数；容差中等，可点「差在哪」要一次微调建议
  *   3 创作   多切口叠加；容差最紧，只给方向性文字，不再一键微调
+ *   4 典藏   五到七刀的成组纹样
+ *   5 转弯   刀在纸里拐弯、画弧、连续起伏
  */
-export type Stage = 1 | 2 | 3 | 4;
+export type Stage = 1 | 2 | 3 | 4 | 5;
 
 export type PuzzleLevel = {
   id: string;
@@ -55,8 +64,12 @@ export type PuzzleLevel = {
   canonicalCuts: Cut[];
   initialGuess: Cut[];
   cutCount: number;
-  /** Human label: 「1 条直线」/「1 个折剪」/「1 条直线 + 1 个折剪」… */
+  /** Human label: 「1 条直线」/「1 个折剪」/「1 条曲线 + 1 条直线」… */
   cutSummary: string;
+  /** 「剪刀能力」 rung, computed from `canonicalCuts`. */
+  skill: ScissorSkill;
+  /** Measured share of the target's boundary that turns smoothly (0..1). */
+  curveRatio: number;
   /** Optional role name per cut, used as the tab label (花心 / 主瓣 / 斜菱 …). */
   cutLabels?: string[];
   tier: PatternTier;
@@ -75,7 +88,16 @@ export type PuzzleLevel = {
 
 type LevelSeed = Omit<
   PuzzleLevel,
-  'target' | 'targetArea' | 'version' | 'index' | 'cutCount' | 'cutSummary' | 'thresholds' | 'stageLabel'
+  | 'target'
+  | 'targetArea'
+  | 'version'
+  | 'index'
+  | 'cutCount'
+  | 'cutSummary'
+  | 'thresholds'
+  | 'stageLabel'
+  | 'skill'
+  | 'curveRatio'
 >;
 
 function buildLevel(seed: LevelSeed, index: number): PuzzleLevel {
@@ -88,21 +110,27 @@ function buildLevel(seed: LevelSeed, index: number): PuzzleLevel {
     throw new Error(`Level "${seed.id}" has a degenerate target region.`);
   }
   const lineCount = seed.canonicalCuts.filter((c) => c.kind === 'line').length;
+  const curveCount = seed.canonicalCuts.filter((c) => c.kind === 'curve').length;
   const notchCount = seed.canonicalCuts.filter((c) => c.kind === 'notch').length;
+  const holeCount = seed.canonicalCuts.filter((c) => c.kind === 'hole').length;
   const parts: string[] = [];
   if (lineCount > 0) parts.push(`${lineCount} 条直线`);
+  if (curveCount > 0) parts.push(`${curveCount} 条曲线`);
   if (notchCount > 0) parts.push(`${notchCount} 个折剪`);
+  if (holeCount > 0) parts.push(`${holeCount} 个镂空`);
   return {
     ...seed,
     index,
     cutCount: seed.canonicalCuts.length,
     cutSummary: parts.join(' + '),
     stageLabel: STAGE_LABEL[seed.stage],
+    skill: skillOf(seed.canonicalCuts),
+    curveRatio: curveRatio(outcome.paper),
     target: outcome.paper,
     targetArea: area,
     // The tolerance is a property of the stage, not of the individual level.
     thresholds: STAGE_THRESHOLDS[seed.stage],
-    version: 4,
+    version: 5,
   };
 }
 
@@ -164,6 +192,38 @@ const SEEDS: LevelSeed[] = [
     knowledge:
       '这一刀的孔洞边界是 |x| + |y| = d，面积 2d²。四层纸各被剪掉一个镜像三角形，展开后严丝合缝地拼成菱形。',
     symmetryNote: '正交双折：4 份镜像图案',
+  },
+  {
+    id: 'ring',
+    stage: 2,
+    title: '玉环',
+    subtitle: '八折，两条直线',
+    brief:
+      '同一方位上放两条直线：内侧那刀抠出八边形孔，外侧那刀把纸包远端削成正八边形。' +
+      '两刀各被复制八份，展开是一枚内八边、外八边的环。',
+    difficulty: 2,
+    foldPreset: 'radial8',
+    tier: 'radial',
+    canonicalCuts: [cutFromAngle(22.5, 0.5, 'negative'), cutFromAngle(22.5, 1.15, 'positive')],
+    initialGuess: [cutFromAngle(22.5, 0.4, 'negative'), cutFromAngle(22.5, 1.0, 'positive')],
+    hints: {
+      observe: '环的内外两条边都是八边形，而且朝向一致——说明同一方位上有两条直线，一条剪内侧、一条剪外侧。',
+      operate: '第 1 刀（负侧）把内孔推到 0.50；第 2 刀（正侧）把外缘从 1.00 推到 1.15，环就变薄。',
+      solution: '直线 22.5°/0.50/负侧；直线 22.5°/1.15/正侧。',
+    },
+    knowledge:
+      '两条平行线在八折下各复制八份：内侧那条围出八边形孔，外侧那条削出八边形边。环的宽度正好是两条线到中心的距离之差（1.15 − 0.50 = 0.65）。',
+    symmetryNote: '八折：8 份镜像图案（D4）',
+    cutLabels: ['内孔', '外缘'],
+    patternDoc: {
+      fold: '八折（D4）。两条切口都取 22.5°，与纸包楔形的角平分线重合，因此内外边界都是正八边形。',
+      cuts: [
+        '第 1 刀（直线·负侧 0.50）：削去靠近中心的一侧，留下八边形孔。',
+        '第 2 刀（直线·正侧 1.15）：削去纸包远端，把外缘收成正八边形。',
+      ],
+      unfold: '内八边形孔 + 外八边形边，构成一枚等宽的八角环；两刀各被复制 8 份。',
+      source: '玉环是中国玉器与窗棂的常见母题（内外同心的八角/圆环）。本关只借用骨架，参数由引擎推导。',
+    },
   },
   {
     id: 'octagram',
@@ -480,6 +540,132 @@ const SEEDS: LevelSeed[] = [
       source: '重瓣是传统团花常见的层次处理（花瓣分内外两层）。两刀错位的构造由本项目自行推导，未使用他人图样。',
     },
   },
+
+  /* ---------------- 阶段 5：让刀转弯（曲线剪） ---------------- */
+  {
+    id: 'scallop',
+    stage: 5,
+    title: '波边',
+    subtitle: '八折，一刀曲线',
+    brief:
+      '刀不再直着走：从纸包一端下刀，沿一条正弦弧弯到中点，再弯回来。八折复制之后，' +
+      '四条边各被压成两道浅弧，八个角收成尖——直线剪不出这条边。',
+    difficulty: 3,
+    foldPreset: 'radial8',
+    tier: 'floral',
+    canonicalCuts: [curveCut(0, 0.99, -0.18, 1, 'positive')],
+    initialGuess: [curveCut(0, 0.9, -0.12, 1, 'positive')],
+    hints: {
+      observe: '四条边都是同向的浅弧、每个角收成尖——这是「一条曲线 + 八折」的指纹；直线剪出来只会是直角。',
+      operate: '把「距中心」推到 0.99，让曲线正好贴着纸包外缘；再把「弯曲」推到 −0.18，中段就会向内凹。',
+      solution: '曲线：法线 0°、距中心 0.99、弯曲 −0.18、1 段弧、剪法向正侧。',
+    },
+    knowledge:
+      '曲线把「半平面」升级成「高度场」：切口是 v = c + A·sin(πt) 的图像，剪去一侧仍然是一个单连通区域。所以曲线剪和直线剪一样精确，只是边界可以弯。',
+    symmetryNote: '八折：8 份镜像图案（D4）',
+    cutLabels: ['扇贝边'],
+    patternDoc: {
+      fold: '八折（D4）。曲线在纸包自身的切向跨度内定义，所以「1 段弧」在每一关都正好跨满手里的纸。',
+      cuts: ['第 1 刀（曲线 0°/0.99/−0.18，1 段弧）：沿外缘剪出一条正弦弧，八折复制成八道扇贝。'],
+      unfold: '四边各两道浅弧、八角收尖的方胜形；整条边界 89% 是平滑曲边。',
+      source:
+        '扇贝/连弧边是中国剪纸最常见的收边之一（灯花、窗裙的波浪缘）。本关用高度场模型重新推导参数，未使用任何图样文件。',
+    },
+  },
+  {
+    id: 'swirl',
+    stage: 5,
+    title: '旋风',
+    subtitle: '八折，一刀 S 形',
+    brief:
+      '刀在纸包里拐了一次弯：先向里、再向外，走出一个 S。八折之后，四条旋臂各自带一段反弯，' +
+      '看上去像风车在转。',
+    difficulty: 3,
+    foldPreset: 'radial8',
+    tier: 'floral',
+    canonicalCuts: [curveCut(67.5, 0.66, -0.16, 2, 'positive')],
+    initialGuess: [curveCut(67.5, 0.66, -0.3, 2, 'positive')],
+    hints: {
+      observe: '四条臂左右不对称：同一条切口在相邻扇区里被镜像，弯的方向反过来，于是像风车。',
+      operate: '方位不用动（67.5°）。把「弯曲」从 −0.30 收回 −0.16，臂就不那么瘦。',
+      solution: '曲线：法线 67.5°、距中心 0.66、弯曲 −0.16、S 形、剪法向正侧。',
+    },
+    knowledge:
+      'S 形是「一个拐点」的曲线：拐点两侧曲率变号，所以剪开的边界既有凸也有凹。直线和单段弧都做不到这一点。',
+    symmetryNote: '八折：8 份镜像图案（D4）',
+    cutLabels: ['旋臂'],
+    patternDoc: {
+      fold: '八折（D4）。切口取 67.5° 的法向，斜跨纸包，因此每条臂在相邻扇区被镜像成反向的弯。',
+      cuts: ['第 1 刀（曲线 67.5°/0.66/−0.16，S 形）：一次拐弯，剪出四条带反弯的旋臂。'],
+      unfold: '四臂风车：每臂外侧外凸、内侧内凹，转角处收成尖；边界 65% 为曲边。',
+      source: '旋子纹/风车纹是民间剪纸的常见动势。此处只用「一次拐弯」这一刀法重新构造，不引用他人图样。',
+    },
+  },
+  {
+    id: 'jar',
+    stage: 5,
+    title: '葫芦',
+    subtitle: '竖折，一刀波浪',
+    brief:
+      '把纸竖着对折，从一侧下刀，刀连续起伏两次：颈、肩、腹、足一次剪成。' +
+      '展开是一个左右对称的葫芦轮廓——葫芦谐音「福禄」，是剪纸里最常见的剪影题材。',
+    difficulty: 3,
+    foldPreset: 'vertical',
+    tier: 'basic',
+    canonicalCuts: [curveCut(0, 0.45, 0.24, 3, 'positive')],
+    initialGuess: [curveCut(0, 0.45, 0.4, 3, 'positive')],
+    hints: {
+      observe: '葫芦左右完全对称，说明纸折过一次；轮廓上有两个「收—放」的转折，说明刀连续拐了两次。',
+      operate: '「距中心」定腹部最宽处（0.45）；「弯曲」从 0.40 收到 0.24，颈和腰才不会细成一条线。',
+      solution: '曲线：法线 0°、距中心 0.45、弯曲 0.24、波浪（3 个半波）、剪法向正侧。',
+    },
+    knowledge:
+      '三个半波、两个拐点：曲率变号两次，轮廓先收、再放、再收。折一次让同一刀同时作用在两层纸上，瓶身因此左右对称。',
+    symmetryNote: '竖折：2 份镜像图案',
+    cutLabels: ['葫芦'],
+    patternDoc: {
+      fold: '竖折：左半张翻到右半张上，两层纸叠在右半张（x ∈ [0,1]）。',
+      cuts: ['第 1 刀（曲线 0°/0.45/0.24，3 个半波）：一刀剪出颈、肩、腰、腹四段轮廓。'],
+      unfold: '左右对称的葫芦剪影，轮廓 68% 为曲边；两层纸各得一条镜像的曲线边。整张纸就是成品，没有内孔——这正是「剪影」的做法。',
+      source:
+        '葫芦（福禄）是剪纸最常见的剪影题材之一。本关只保留「一刀剪出整条侧轮廓」的刀法，不复制任何传统图样。',
+    },
+  },
+  {
+    id: 'lattice',
+    stage: 5,
+    title: '花窗',
+    subtitle: '八折，两刀 · 曲线 + 直线',
+    brief:
+      '一刀曲线把外缘压成八道扇贝，一刀直线开出八边形花心。曲线负责柔软，直线负责秩序——' +
+      '两种刀法落在同一个纸包上。',
+    difficulty: 3,
+    foldPreset: 'radial8',
+    tier: 'floral',
+    canonicalCuts: [
+      curveCut(0, 1.0, -0.16, 1, 'positive'),
+      cutFromAngle(22.5, 0.34, 'negative'),
+    ],
+    initialGuess: [curveCut(0, 0.99, -0.1, 1, 'positive'), cutFromAngle(22.5, 0.42, 'negative')],
+    hints: {
+      observe: '外缘是弧、内孔是八边形：两种边界用两种刀法。先判断哪一刀负责哪一圈。',
+      operate: '第 1 刀（曲线）把外缘压到 1.00、弯曲 −0.16；第 2 刀（直线·负侧）把花心推到 0.34。',
+      solution: '曲线 0°/1.00/−0.16/1 段弧/正侧；直线 22.5°/0.34/负侧。',
+    },
+    knowledge:
+      '同一条切口的曲率不改变它的复制方式：曲线照样被 D4 复制八份。所以「柔边 + 硬心」可以共存，只要两刀占据不同的半径带。',
+    symmetryNote: '八折：8 份镜像图案（D4）',
+    cutLabels: ['扇贝边', '花心'],
+    patternDoc: {
+      fold: '八折（D4）。两刀各占一个半径带：外带是曲线，内带是直线，互不侵占。',
+      cuts: [
+        '第 1 刀（曲线 0°/1.00/−0.16，1 段弧）：八道扇贝，压在纸包最外侧。',
+        '第 2 刀（直线 22.5°/0.34，负侧）：正八边形花心。',
+      ],
+      unfold: '扇贝外缘 + 八边形花心的窗式构图；外缘 69% 为曲边，内孔是纯直线。',
+      source: '「软边硬心」是江南窗棂与团花常见的对比手法。参数由本项目引擎重新推导，未使用他人图样。',
+    },
+  },
 ];
 
 export const STAGE_LABEL: Record<Stage, string> = {
@@ -487,6 +673,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
   2: '阶段 2 · 对齐参数',
   3: '阶段 3 · 叠加切口',
   4: '阶段 4 · 典藏纹样',
+  5: '阶段 5 · 让刀转弯',
 };
 
 export const STAGE_HINT: Record<Stage, string> = {
@@ -494,6 +681,7 @@ export const STAGE_HINT: Record<Stage, string> = {
   2: '对照仍在，观察提示要自己点开；达标线收紧到 94%，卡住时用「差在哪？」。',
   3: '对照默认关闭（可手动开）；不给一键微调，只给方向，需要自己判断每条切口负责哪一层。',
   4: '五到七刀的典藏纹样：先读「图案档案」弄清每条切口负责哪一层，再动手；达标线仍是 96%。',
+  5: '曲线关：先看「弯几个弯」再调「弯曲」，整条边会一起动。达标线与阶段 4 一致（96%），一格滑块仍然不会判失败。',
 };
 
 /** Per-pattern documentation shown in the library and on the level page. */

@@ -7,17 +7,22 @@ import { PaperStage } from '../components/PaperStage';
 import { useToast } from '../components/Toast';
 import {
   applyCuts,
+  changeCutKind,
+  clampBends,
+  curveCut,
   cutAngleDeg,
   cutFromAngle,
   describeCut,
   notchCut,
   type Cut,
+  type CurveBends,
   type HoleShape,
 } from '../geometry/cut';
 import { FOLD_PRESETS, type FoldPresetId, getPreset } from '../geometry/fold';
 import { multiPolygonArea } from '../geometry/polygon';
 import { useAnimatedValue } from '../hooks/useAnimatedValue';
 import { downloadPng, downloadSvg } from '../services/export';
+import { SKILL_META, skillOf } from '../puzzle/skill';
 import {
   type ArtworkDoc,
   type StyleDoc,
@@ -26,6 +31,13 @@ import {
   makeId,
   saveArtwork,
 } from '../services/storage';
+
+const CUT_KIND_LABEL: Record<Cut['kind'], string> = {
+  line: '直线',
+  curve: '曲线',
+  notch: '折剪',
+  hole: '镂空',
+};
 
 type StudioState = {
   foldPreset: FoldPresetId;
@@ -66,6 +78,7 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
 
   const area = multiPolygonArea(result.paper);
   const holeCount = result.paper.reduce((n, poly) => n + Math.max(0, poly.length - 1), 0);
+  const studioSkill = skillOf(state.cuts);
 
   useEffect(() => {
     if (!artworkId) return;
@@ -227,9 +240,7 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
                 foldedness={fold.value}
                 cut={activeCut}
                 showCutLine
-                onCutChange={(c) => {
-                  if (c.kind === 'line') updateCut(Math.min(active, state.cuts.length - 1), c);
-                }}
+                onCutChange={(c) => updateCut(Math.min(active, state.cuts.length - 1), c)}
                 paperColor={state.style.paper}
                 accentColor="#D84A49"
                 showCreases
@@ -306,7 +317,9 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
           <div className="card card--pad">
             <div className="panel-title">
               <h3>切口</h3>
-              <span>{state.cuts.length} / 3</span>
+              <span>
+                {state.cuts.length} / 3 · {SKILL_META[studioSkill].label}
+              </span>
             </div>
             <div className="cut-tabs">
               {state.cuts.map((_, i) => (
@@ -322,6 +335,33 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
                 +
               </button>
             </div>
+
+            {/* 刀型: the one control that turns a stroke into a different
+                primitive. Kept above the sliders because it changes which
+                sliders exist, not just their values. */}
+            {activeCut && (
+              <div className="control" style={{ paddingTop: 0 }}>
+                <div className="control__head">
+                  <span className="control__label">刀型</span>
+                  <span className="control__value mono">{CUT_KIND_LABEL[activeCut.kind]}</span>
+                </div>
+                <div className="segmented" role="group" aria-label="切换切口类型">
+                  {(['line', 'curve', 'notch', 'hole'] as const).map((k) => (
+                    <button
+                      key={k}
+                      className={`segmented__item${activeCut.kind === k ? ' is-active' : ''}`}
+                      aria-pressed={activeCut.kind === k}
+                      onClick={() => {
+                        beginEdit();
+                        updateCut(active, changeCutKind(activeCut, k));
+                      }}
+                    >
+                      {CUT_KIND_LABEL[k]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {activeCut && activeCut.kind === 'line' && (
               <>
@@ -370,6 +410,116 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
                     onClick={() => {
                       beginEdit();
                       updateCut(active, { ...activeCut, removedSide: 'negative' });
+                    }}
+                  >
+                    负侧
+                  </button>
+                  <button
+                    className={`segmented__item${activeCut.removedSide === 'positive' ? ' is-active' : ''}`}
+                    onClick={() => {
+                      beginEdit();
+                      updateCut(active, { ...activeCut, removedSide: 'positive' });
+                    }}
+                  >
+                    正侧
+                  </button>
+                </div>
+              </>
+            )}
+
+            {activeCut && activeCut.kind === 'curve' && (
+              <>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">法线角度</span>
+                    <span className="control__value mono">{Math.round(activeCut.angle)}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={179}
+                    step={1}
+                    value={Math.round(activeCut.angle)}
+                    aria-label="曲线法线角度"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) => updateCut(active, { ...activeCut, angle: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">距中心</span>
+                    <span className="control__value mono">{activeCut.offset.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-1.6}
+                    max={1.6}
+                    step={0.01}
+                    value={activeCut.offset}
+                    aria-label="曲线与纸包中心的距离"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) => updateCut(active, { ...activeCut, offset: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">弯曲</span>
+                    <span className="control__value mono">
+                      {activeCut.amplitude >= 0 ? '+' : '−'}
+                      {Math.abs(activeCut.amplitude).toFixed(2)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-1}
+                    max={1}
+                    step={0.01}
+                    value={activeCut.amplitude}
+                    aria-label="弯曲幅度，0 为直线"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) => updateCut(active, { ...activeCut, amplitude: Number(e.target.value) })}
+                  />
+                  <div className="control__scale">
+                    <span>内凹</span>
+                    <span>0 = 直线</span>
+                    <span>外凸</span>
+                  </div>
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">弯折</span>
+                  </div>
+                  <div className="segmented" role="group" aria-label="弯折次数">
+                    {(
+                      [
+                        [1, '弧线'],
+                        [2, 'S 形'],
+                        [3, '波浪'],
+                      ] as [CurveBends, string][]
+                    ).map(([n, label]) => (
+                      <button
+                        key={n}
+                        className={`segmented__item${activeCut.bends === n ? ' is-active' : ''}`}
+                        aria-pressed={activeCut.bends === n}
+                        onClick={() => {
+                          beginEdit();
+                          updateCut(active, { ...activeCut, bends: clampBends(n) });
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="segmented" role="group" aria-label="剪去哪一侧" style={{ marginTop: 4 }}>
+                  <button
+                    className={`segmented__item${activeCut.removedSide === 'negative' ? ' is-active' : ''}`}
+                    onClick={() => {
+                      beginEdit();
+                      updateCut(active, curveCut(activeCut.angle, activeCut.offset, activeCut.amplitude, activeCut.bends, 'negative'));
                     }}
                   >
                     负侧

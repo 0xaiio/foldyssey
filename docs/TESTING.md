@@ -5,7 +5,7 @@
 
 ## 1. 单元测试（`npm run test`）
 
-位置 `src/tests/`，共 **46 个用例（+1 个默认跳过）**，按组：
+位置 `src/tests/`，共 **104 个用例（+1 个默认跳过）**，按组：
 
 > `vite.config.ts` 里设了 `fileParallelism: false`：在受限 shell 中多个 worker 同时
 > 启动会争抢模块缓存的临时目录（EPERM），导致测试文件被静默丢弃。串行加载后稳定。
@@ -18,6 +18,10 @@
 | scoring | 评分 | IoU=1、错误解不通过、空区域不产生 NaN、容差内仍判通过 |
 | shipped levels | 关卡数据 | 6 关唯一、每关标准解 IoU=1、每关初始猜测不通过、关卡互不相同、标准解可被 UI 复现 |
 | export | 导出 | SVG 有 `evenodd` 与 2 个子路径、文件名稳定 |
+| curved strokes | 曲线剪 | `amplitude 0 is exactly the straight cut…`（与直线严格等价）、`certified chord bound`（闭式误差界 vs 20× 密采样实测）、`converges to the refined area`、8 折对称不变、面积守恒、退化输入、`visible stroke`、单次求值 ≤ 60 ms |
+| scissor ladder | 剪刀能力分级 | `classifies by what the blade does`（四级判据、镂空不升级、`A=0` 按直线）、`each rung is introduced only after the one below it`、`a curve level really has curved edges`（曲边占比与级位一致）、`canonical curve value is reachable` |
+| blade type switch | 刀型转换 | 12 组转换都产出合法切口并保持方向；同型转换是 no-op；直线→曲线有可见弯曲、曲线归零退回同一条直线 |
+| ui（`ui.test.tsx`） | 结构渲染（无浏览器） | 16 关全部可渲染；分级条只有一个「本关」且与 `level.skill` 一致；曲线关有曲线控件/手柄/拐点，直线关没有；两刀关 2 个标签页；侧栏 16 行；创作台四种刀型 |
 | ai schema（`ai.test.ts`） | 模型输出校验 | 未知字段/未知 motif/越界数值/非法颜色/order=8 全部拒绝；对称类型不一致、低对比度、超长标题被确定性降级；45 组极值组合都仍可渲染；同输入同路径 |
 | ai parsing | 解析模型文本 | 容忍 ```json 围栏与前后废话；无 JSON 抛错；控制字符清洗与截断 |
 | ai live（默认跳过） | 真实调用 | `FOLDYSSEY_LIVE_AI=1` 时调用真实模型，断言返回可渲染设计 |

@@ -1,9 +1,22 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import type { Cut, CutOutcome } from '../geometry/cut';
-import { CUT_OFFSET_LIMIT, NOTCH_REACH, clipRayToRing, holeOutline, normalizeCut } from '../geometry/cut';
+import {
+  CURVE_AMPLITUDE_LIMIT,
+  CUT_OFFSET_LIMIT,
+  NOTCH_REACH,
+  clipRayToRing,
+  holeOutline,
+  normalizeCut,
+  visibleStroke,
+} from '../geometry/cut';
 import { type FoldPreset, patchRenderMatrix } from '../geometry/fold';
-import { type MultiPolygon, multiPolygonBounds, multiPolygonToPath } from '../geometry/polygon';
+import {
+  type MultiPolygon,
+  multiPolygonBounds,
+  multiPolygonToPath,
+  pointInRing,
+} from '../geometry/polygon';
 import { type Vec2, clamp } from '../geometry/vec';
 
 export const FULL_VIEW = { x: -1.26, y: -1.26, w: 2.52, h: 2.52 };
@@ -33,7 +46,22 @@ export type PaperStageProps = {
   ariaLabel?: string;
 };
 
-type DragMode = 'translate' | 'rotate' | null;
+type DragMode = 'translate' | 'rotate' | 'bend' | null;
+
+/** A handle on the cut. `k` is the sine factor at a bend handle (see `applyDrag`). */
+type Handle = { p: Vec2; role: Exclude<DragMode, null>; k?: number };
+
+type CutGeom = {
+  /** SVG sub-paths for the blade line. */
+  paths: string[];
+  /** Dashed construction lines (the chord a curve bends away from). */
+  guides: { a: Vec2; b: Vec2 }[];
+  /** Inflection markers: where the blade changes which way it turns. */
+  inflections: Vec2[];
+  handles: Handle[];
+  r: number;
+  hit: number;
+};
 
 const smoothstep = (a: number, b: number, x: number): number => {
   const t = clamp((x - a) / (b - a || 1), 0, 1);
@@ -86,7 +114,11 @@ export function PaperStage({
   ariaLabel = '剪纸纸张预览',
 }: PaperStageProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const dragRef = useRef<{ mode: DragMode; pointerId: number }>({ mode: null, pointerId: -1 });
+  const dragRef = useRef<{ mode: DragMode; pointerId: number; k: number }>({
+    mode: null,
+    pointerId: -1,
+    k: 1,
+  });
 
   // Camera: zoom gently onto the folded packet so the packet stays usable.
   const view = useMemo<Box>(() => {
@@ -119,7 +151,7 @@ export function PaperStage({
   }, []);
 
   const applyDrag = useCallback(
-    (p: Vec2, mode: DragMode) => {
+    (p: Vec2, mode: DragMode, k = 1) => {
       if (!onCutChange || !cut || !mode) return;
 
       if (cut.kind === 'notch') {
@@ -159,6 +191,48 @@ export function PaperStage({
         return;
       }
 
+      if (cut.kind === 'curve') {
+        const rad = (cut.angle * Math.PI) / 180;
+        const vx = Math.cos(rad);
+        const vy = Math.sin(rad);
+        if (mode === 'translate') {
+          const projected = vx * p.x + vy * p.y;
+          onCutChange({ ...cut, offset: clamp(projected, -CUT_OFFSET_LIMIT, CUT_OFFSET_LIMIT) });
+          return;
+        }
+        if (mode === 'bend') {
+          // The handle sits at a known crest, where v·p = offset + A·k.
+          if (Math.abs(k) < 0.2) return;
+          const a = clamp((vx * p.x + vy * p.y - cut.offset) / k, -CURVE_AMPLITUDE_LIMIT, CURVE_AMPLITUDE_LIMIT);
+          onCutChange({ ...cut, amplitude: Math.round(a * 100) / 100 });
+          return;
+        }
+        const dx = p.x - pivot.x;
+        const dy = p.y - pivot.y;
+        if (Math.hypot(dx, dy) < 1e-6) return;
+        const phi = Math.atan2(dy, dx) + Math.PI / 2;
+        const nx = Math.cos(phi);
+        const ny = Math.sin(phi);
+        const distance = cut.offset - (vx * pivot.x + vy * pivot.y);
+        const offset = nx * pivot.x + ny * pivot.y + distance;
+        const next = { ...cut, angle: 0, offset };
+        const a = Math.atan2(ny, nx);
+        if (a < 0) {
+          // Flipping the normal keeps the stroke in place only if the offset,
+          // the bulge and the removed side all flip with it.
+          onCutChange({
+            ...next,
+            angle: Number((((a + Math.PI) * 180) / Math.PI).toFixed(1)),
+            offset: -offset,
+            amplitude: -cut.amplitude,
+            removedSide: cut.removedSide === 'positive' ? 'negative' : 'positive',
+          });
+        } else {
+          onCutChange({ ...next, angle: Number(((a * 180) / Math.PI).toFixed(1)) });
+        }
+        return;
+      }
+
       if (mode === 'translate') {
         const projected = cut.nx * p.x + cut.ny * p.y;
         onCutChange({ ...cut, offset: clamp(projected, -CUT_OFFSET_LIMIT, CUT_OFFSET_LIMIT) });
@@ -193,27 +267,34 @@ export function PaperStage({
     (e: React.PointerEvent<SVGSVGElement>) => {
       if (!onCutChange || !cut || !showCutLine) return;
       const target = e.target as Element | null;
-      const role = target?.closest?.('[data-cut-role]')?.getAttribute('data-cut-role');
-      const mode: DragMode = role === 'rotate' ? 'rotate' : 'translate';
-      dragRef.current = { mode, pointerId: e.pointerId };
+      const roleEl = target?.closest?.('[data-cut-role]') as Element | null;
+      const role = roleEl?.getAttribute('data-cut-role') as DragMode | null;
+      const kAttr = roleEl?.getAttribute('data-cut-k');
+      const k = kAttr == null ? 1 : Number(kAttr);
+      // Touch users get the handles only, so the page can still scroll over the
+      // canvas; a mouse can click anywhere to move the stroke (the old
+      // behaviour). `touch-action: pan-y` on the SVG backs this up in CSS.
+      if (!role && e.pointerType !== 'mouse') return;
+      const mode: DragMode = role ?? 'translate';
+      dragRef.current = { mode, pointerId: e.pointerId, k };
       e.currentTarget.setPointerCapture?.(e.pointerId);
-      applyDrag(toMath(e.clientX, e.clientY), mode);
+      applyDrag(toMath(e.clientX, e.clientY), mode, k);
     },
     [applyDrag, cut, onCutChange, showCutLine, toMath],
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
-      const { mode, pointerId } = dragRef.current;
+      const { mode, pointerId, k } = dragRef.current;
       if (!mode || pointerId !== e.pointerId) return;
-      applyDrag(toMath(e.clientX, e.clientY), mode);
+      applyDrag(toMath(e.clientX, e.clientY), mode, k);
     },
     [applyDrag, toMath],
   );
 
   const endDrag = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (dragRef.current.pointerId === e.pointerId) {
-      dragRef.current = { mode: null, pointerId: -1 };
+      dragRef.current = { mode: null, pointerId: -1, k: 1 };
     }
   }, []);
 
@@ -222,12 +303,16 @@ export function PaperStage({
     [outcome],
   );
 
-  const cutGeom = useMemo(() => {
+  const cutGeom = useMemo<CutGeom | null>(() => {
     if (!cut) return null;
     const norm = normalizeCut(cut);
     if (!norm) return null;
     const r = view.w * 0.028;
     const hit = view.w * 0.075;
+    const pathOf = (pts: Vec2[], close: boolean): string =>
+      pts.length < 2
+        ? ''
+        : `M${pts.map((p) => `${p.x.toFixed(5)} ${p.y.toFixed(5)}`).join('L')}${close ? 'Z' : ''}`;
 
     if (norm.kind === 'notch') {
       const rad = (norm.angle * Math.PI) / 180;
@@ -248,36 +333,79 @@ export function PaperStage({
       const left = armDir(1);
       const right = armDir(-1);
       return {
-        segments: [
-          { a: apex, b: left },
-          { a: apex, b: right },
-        ],
+        paths: [pathOf([left, apex, right], false)],
+        guides: [],
+        inflections: [apex],
         handles: [
-          { p: apex, role: 'translate' as const },
-          { p: left, role: 'rotate' as const },
-          { p: right, role: 'rotate' as const },
+          { p: apex, role: 'translate' },
+          { p: left, role: 'rotate' },
+          { p: right, role: 'rotate' },
         ],
         r,
         hit,
       };
     }
 
-
     if (norm.kind === 'hole') {
       const ring = holeOutline(norm);
-      const segments = ring.map((pt, i) => ({ a: pt, b: ring[(i + 1) % ring.length] }));
       const centre = {
         x: Math.cos((norm.angle * Math.PI) / 180) * norm.radius,
         y: Math.sin((norm.angle * Math.PI) / 180) * norm.radius,
       };
-      const tip = ring[0] ?? centre;
       return {
-        segments,
+        paths: [pathOf(ring, true)],
+        guides: [],
+        inflections: [],
         handles: [
-          { p: centre, role: 'translate' as const },
-          { p: tip, role: 'rotate' as const },
+          { p: centre, role: 'translate' },
+          { p: ring[0] ?? centre, role: 'rotate' },
         ],
         r: r * 0.8,
+        hit,
+      };
+    }
+
+    if (norm.kind === 'curve') {
+      const stroke = visibleStroke(preset, norm);
+      if (!stroke) return null;
+      const pts = stroke.points;
+      const rad = (norm.angle * Math.PI) / 180;
+      const vx = Math.cos(rad);
+      const vy = Math.sin(rad);
+      // The bend handle goes on the visible sample that deviates most from the
+      // chord, so it is always on screen — and `k` records the sine factor
+      // there, which is what makes the drag follow the finger.
+      let best = 0;
+      let bestAbs = -1;
+      pts.forEach((p, i) => {
+        const dev = Math.abs(vx * p.x + vy * p.y - norm.offset);
+        if (dev > bestAbs) {
+          bestAbs = dev;
+          best = i;
+        }
+      });
+      const bendPoint = pts[best];
+      const dev = vx * bendPoint.x + vy * bendPoint.y - norm.offset;
+      const k = Math.abs(norm.amplitude) > 1e-6 ? clamp(dev / norm.amplitude, -1, 1) : 1;
+      const inflections: Vec2[] = [];
+      for (let m = 1; m < norm.bends; m++) {
+        const t = (2 * m) / norm.bends - 1;
+        const u = (t + 1) / 2;
+        const idx = Math.round(u * (pts.length - 1));
+        const p = pts[idx];
+        if (p && pointInRing(p, preset.packet)) inflections.push(p);
+      }
+      return {
+        paths: [pathOf(pts, false)],
+        guides: [{ a: pts[0], b: pts[pts.length - 1] }],
+        inflections,
+        handles: [
+          { p: pts[Math.floor(pts.length / 2)], role: 'translate' },
+          { p: pts[0], role: 'rotate' },
+          { p: pts[pts.length - 1], role: 'rotate' },
+          { p: bendPoint, role: 'bend', k: Math.abs(k) < 0.2 ? (k < 0 ? -1 : 1) : k },
+        ],
+        r,
         hit,
       };
     }
@@ -288,15 +416,17 @@ export function PaperStage({
     const a = { x: center.x - t.x * L, y: center.y - t.y * L };
     const b = { x: center.x + t.x * L, y: center.y + t.y * L };
     return {
-      segments: [{ a, b }],
+      paths: [pathOf([a, b], false)],
+      guides: [],
+      inflections: [],
       handles: [
-        { p: a, role: 'rotate' as const },
-        { p: b, role: 'rotate' as const },
+        { p: a, role: 'rotate' },
+        { p: b, role: 'rotate' },
       ],
       r,
       hit,
     };
-  }, [cut, view.w, preset.packet]);
+  }, [cut, view.w, preset]);
 
   const flapStroke = smoothstep(0.06, 0.3, foldedness);
   const silhouette = 1 - smoothstep(0.02, 0.22, foldedness);
@@ -320,7 +450,7 @@ export function PaperStage({
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      style={{ touchAction: onCutChange && showCutLine ? 'none' : 'auto' }}
+      style={{ touchAction: onCutChange && showCutLine ? 'pan-y' : 'auto' }}
     >
       <defs>
         {/* userSpaceOnUse: every flap samples the same light field, so the
@@ -494,40 +624,88 @@ export function PaperStage({
 
         {showCutLine && cutGeom && (
           <g>
-            {cutGeom.segments.map((seg, i) => (
-              <g key={`cut-seg-${i}`}>
-                <line
-                  x1={seg.a.x}
-                  y1={seg.a.y}
-                  x2={seg.b.x}
-                  y2={seg.b.y}
+            {/* The chord a curved stroke bends away from: makes "how far it is
+                bent" visible without adding another slider readout. */}
+            {cutGeom.guides.map((g, i) => (
+              <line
+                key={`cut-guide-${i}`}
+                x1={g.a.x}
+                y1={g.a.y}
+                x2={g.b.x}
+                y2={g.b.y}
+                stroke={`rgba(36,39,37,0.34)`}
+                strokeWidth={cutGeom.r * 0.22}
+                strokeDasharray={`${cutGeom.r * 0.9} ${cutGeom.r * 0.7}`}
+                strokeLinecap="round"
+              />
+            ))}
+            {cutGeom.paths.map((d, i) => (
+              <g key={`cut-path-${i}`}>
+                <path
+                  d={d}
+                  fill="none"
                   stroke="#FFFDF7"
                   strokeWidth={cutGeom.r * 1.5}
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                   opacity={0.85}
                 />
-                <line
-                  x1={seg.a.x}
-                  y1={seg.a.y}
-                  x2={seg.b.x}
-                  y2={seg.b.y}
+                <path
+                  d={d}
+                  fill="none"
                   stroke={accentColor}
                   strokeWidth={cutGeom.r * 0.62}
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
               </g>
             ))}
+            {/* Inflections: where the blade stops turning one way and starts
+                turning the other. A straight cut has none, an S has one. */}
+            {cutGeom.inflections.map((p, i) => (
+              <circle
+                key={`cut-inflection-${i}`}
+                cx={p.x}
+                cy={p.y}
+                r={cutGeom.r * 0.42}
+                fill="#FFFDF7"
+                stroke={accentColor}
+                strokeWidth={cutGeom.r * 0.16}
+                opacity={0.9}
+              />
+            ))}
             {cutGeom.handles.map((hnd, i) => (
-              <g key={`cut-handle-${i}`} data-cut-role={hnd.role} style={{ cursor: 'grab' }}>
+              <g
+                key={`cut-handle-${i}`}
+                data-cut-role={hnd.role}
+                data-cut-k={hnd.k}
+                style={{ cursor: hnd.role === 'bend' ? 'ns-resize' : 'grab', touchAction: 'none' }}
+              >
                 <circle cx={hnd.p.x} cy={hnd.p.y} r={cutGeom.hit} fill="transparent" />
-                <circle
-                  cx={hnd.p.x}
-                  cy={hnd.p.y}
-                  r={cutGeom.r}
-                  fill="#FFFDF7"
-                  stroke={accentColor}
-                  strokeWidth={cutGeom.r * 0.28}
-                />
+                {hnd.role === 'bend' ? (
+                  // A diamond, so the one handle that changes shape reads
+                  // differently from the three that move the stroke.
+                  <rect
+                    x={hnd.p.x - cutGeom.r * 0.95}
+                    y={hnd.p.y - cutGeom.r * 0.95}
+                    width={cutGeom.r * 1.9}
+                    height={cutGeom.r * 1.9}
+                    transform={`rotate(45 ${hnd.p.x} ${hnd.p.y})`}
+                    rx={cutGeom.r * 0.2}
+                    fill="#FFFDF7"
+                    stroke={accentColor}
+                    strokeWidth={cutGeom.r * 0.3}
+                  />
+                ) : (
+                  <circle
+                    cx={hnd.p.x}
+                    cy={hnd.p.y}
+                    r={cutGeom.r}
+                    fill="#FFFDF7"
+                    stroke={accentColor}
+                    strokeWidth={cutGeom.r * 0.28}
+                  />
+                )}
               </g>
             ))}
           </g>

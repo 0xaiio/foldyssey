@@ -8,7 +8,8 @@ Foldyssey（一刀万象）的工程文档。**文档与代码同步演进**：�
 | 读者 | 建议顺序 |
 |---|---|
 | 第一次接触项目的人 | `README.md` → `docs/REQUIREMENTS.md` → `docs/GEOMETRY_SPEC.md` |
-| 要改几何算法的人 | `docs/GEOMETRY_SPEC.md` → `docs/TESTING.md` → `src/geometry/*.ts` → `src/tests/geometry.test.ts` |
+| 要改几何算法的人 | `docs/GEOMETRY_SPEC.md` → `docs/SCISSOR_CURVES.md` → `docs/TESTING.md` → `src/geometry/*.ts` → `src/tests/geometry.test.ts` |
+| 要改关卡或分级的人 | `docs/SCISSOR_CURVES.md` → `src/puzzle/skill.ts` → `src/puzzle/levels.ts` → `docs/PATTERNS.md` |
 | 要改界面/动画的人 | `docs/ARCHITECTURE.md` → `src/components/PaperStage.tsx` → `docs/TESTING.md` |
 | 要发布上线的人 | `docs/DEPLOYMENT.md` → `submission/publish_verification.md` |
 | 接手维护的人 | `PROJECT_STATUS.md` → `TASKS.md` → `docs/adr/` → `CHANGELOG.md` |
@@ -30,7 +31,8 @@ Foldyssey（一刀万象）的工程文档。**文档与代码同步演进**：�
 | `docs/DEVELOPMENT.md` | 环境、脚本、编码约定、调试入口 | 开发流程变化时 |
 | `docs/TESTING.md` | 测试矩阵、执行方式、质量闸门 | 测试范围变化时 |
 | `docs/UX_REDESIGN.md` | 交互与判定重设计：容差、诊断、实时对照、阶段划分 | 交互/判定变化时 |
-| `docs/PATTERNS.md` | 11 个图案的折叠结构 / 切割逻辑 / 展开效果 + 研究引用边界 | 图案增删时 |
+| `docs/PATTERNS.md` | 16 个图案的折叠结构 / 切割逻辑 / 展开效果 + 研究引用边界 | 图案增删时 |
+| `docs/SCISSOR_CURVES.md` | 曲线剪的模型与误差界、「剪刀能力」四级判定与边界、曲线相关的交互设计 | 刀具或分级变化时 |
 | `docs/DEPLOYMENT.md` | 构建、发布、更新发布、线上核验 | 发布流程变化时 |
 | `docs/GITHUB_WORKFLOW.md` | Git 规范、分支、提交、推送 | Git 规则变化时 |
 | `docs/SECURITY.md` | 密钥、隐私、依赖、漏洞披露 | 安全边界变化时 |

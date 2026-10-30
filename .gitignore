@@ -48,3 +48,6 @@ ai/
 
 # Local agent workspace state
 .workbuddy/
+
+# local scratch: rasteriser output & browser profiles
+.tmp-shots/

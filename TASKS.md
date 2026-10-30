@@ -69,17 +69,30 @@
 | REQ-QA-002 | 浏览器端验证 | P1 | 已完成 | `tools/ui_check.py`、`tools/ai_check.py` | 主流程 `37/37`、AI `14/14`，`console issues: 0`（本地与线上各一轮） | 仅 Chromium 内核 |
 | REQ-QA-003 | 真实模型调用验证 | P0 | 已完成 | `src/tests/ai.live.test.ts`（默认 skip） | `FOLDYSSEY_LIVE_AI=1` 时通过，输出合法 JSON 并渲染 | 每次消耗一次额度 |
 
-## 五、明确不做（不适用）
+## 五、曲线剪与剪刀能力分级（v0.7.0）
+
+| ID | 任务 / 验收条件 | 优先级 | 状态 | 实现文件 / 思路 | 验证证据 | 遗留 |
+|---|---|---|---|---|---|---|
+| REQ-GEO-008 | 曲线剪：弧线 / 拐弯 / 连续曲线，且与直线严格兼容 | P0 | 已完成 | `geometry/cut.ts` `CurveCut` + `curveRegion`；高度场 `v = offset + A·sin(bends·π·t)` | `amplitude 0 is exactly the straight cut…`（5 组参数 IoU=1、纸形差 <1e-9）、`certified chord bound`（9 组，实测 ≤1.35×上界） | 正弦弧不是真圆弧；不支持自交/回头/闭环 |
+| REQ-GEO-009 | 四级分级：一刀 / 两刀 / 拐弯 / 曲线 | P0 | 已完成 | `puzzle/skill.ts` `strokeStats` / `skillOf` / `curveRatio` | `classifies by what the blade does…`、`each rung is introduced only after the one below it`、`a curve level really has curved edges…` | 级位只看开口刀法；镂空另记一条轴 |
+| — | 5 个新关卡（玉环 / 波边 / 旋风 / 葫芦 / 花窗） | P1 | 已完成 | `puzzle/levels.ts` `SEEDS`；目标由 `buildLevel()` 正向构造 | `every level can be solved by its canonical solution`、`every level rejects its own initial guess`、`levels are visually distinct` | — |
+| — | 阶段 5「让刀转弯」与容差 | P0 | 已完成 | `geometry/score.ts` `STAGE_THRESHOLDS[5] = 96/90` | `one slider step never fails any level`（16 关全过；曲线关最差邻居 97.2%） | — |
+| — | 曲线控件与画布手柄（含弯曲菱形手柄、拐点、弦） | P0 | 已完成 | `pages/PuzzlePage.tsx`、`components/PaperStage.tsx` | `ui: draws the curved blade with a bend handle…`、`ui: gives a curve level the curve controls…` | 真机触控未回归 |
+| — | 分级条 + 判定与边界说明 | P0 | 已完成 | `components/SkillLadder.tsx`、`docs/SCISSOR_CURVES.md` §3 | `ui: marks exactly one ladder rung…`；文档四级表 | — |
+| — | 创作台刀型切换（四种刀型互转） | P1 | 已完成 | `geometry/cut.ts` `changeCutKind`、`pages/StudioPage.tsx` | `always produces a valid cut, and keeps the direction`（12 组）、`ui: studio exposes the blade switch` | — |
+| — | 浏览器级回归 | P1 | 受阻 | — | 停在 v0.6.0 的 45/45 | 本机 Edge/Chromium 启动即退出，需换环境重跑 |
+
+## 六、明确不做（不适用）
 
 | 项 | 原因 |
 |---|---|
-| 任意斜折 / 曲线切口 | 需要新的合法分区与可平折性验证，超出首版范围 |
+| 任意斜折 / **任意路径**的开口剪（自交、回头、闭环） | 斜折需要新的合法分区与可平折性验证；任意路径会让「剪去哪一侧」失去定义（见 ADR-0006） |
 | 任意目标图案自动求解 | 需要一般平折算法，与"四种预设"的产品定位冲突 |
 | 纸张物理仿真 | ADR-0001 |
 | 实体可打印模板核验 | 未做 A4 比例尺与折序核验，因此不写 `verified` |
 | 账号 / 云同步 | ADR-0005 |
 
-## 六、下一步（若继续）
+## 七、下一步（若继续）
 
 1. 接入运行时 AI（`docs/AI_INTEGRATION.md` 的方案），补齐 AI 端到端测试。
 2. 增加斜折预设（45° 对角折），需要新的 `forward/inverse` 与无穿透说明。

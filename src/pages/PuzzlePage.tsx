@@ -3,13 +3,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { navigate } from '../app/router';
 import { MiniPattern } from '../components/MiniPattern';
 import { PaperStage } from '../components/PaperStage';
+import { SkillLadder } from '../components/SkillLadder';
 import { useToast } from '../components/Toast';
 import {
   applyCuts,
   cutAngleDeg,
   cutFromAngle,
   describeCut,
+  visibleStroke,
   type Cut,
+  type CurveBends,
 } from '../geometry/cut';
 import { getPreset } from '../geometry/fold';
 import {
@@ -22,6 +25,7 @@ import {
 import { useAnimatedValue } from '../hooks/useAnimatedValue';
 import { LEVELS, STAGE_HINT, TIER_LABEL, getLevel } from '../puzzle/levels';
 import { applyNudge, diagnose, type Diagnosis } from '../puzzle/assist';
+import { CURVE_AMPLITUDE_EPS, SKILL_META, SKILL_ORDER, curveRatio, type ScissorSkill } from '../puzzle/skill';
 import { loadProgress, recordAttempt, type ProgressDoc } from '../services/storage';
 
 type Phase = 'ready' | 'folding' | 'folded' | 'cutting' | 'cut' | 'unfolding' | 'revealed';
@@ -186,11 +190,42 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
   const cutLabel =
     level.cutCount > 1
       ? `剪 ${level.cutCount} 刀`
-      : level.canonicalCuts[0]?.kind === 'notch'
+      : level.canonicalCuts[0]?.kind === 'notch' || level.canonicalCuts[0]?.kind === 'curve'
         ? '剪一剪'
         : '剪一刀';
-  // Stage 3 gives no one-tap help; stage 4 has more cuts, so it needs more taps.
-  const nudgeBudget = level.stage === 3 ? 0 : level.stage === 4 ? 8 : 6;
+  // Stage 3 gives no one-tap help; stage 4 has more cuts, so it needs more taps,
+  // and a curve has more sliders than a straight cut.
+  const nudgeBudget = level.stage === 3 ? 0 : level.stage === 4 ? 8 : level.stage === 5 ? 10 : 6;
+  // How many shipped levels sit on each rung — the ladder shows the whole
+  // ladder alphabet, not just this level.
+  const skillCounts = useMemo(() => {
+    const out = Object.fromEntries(SKILL_ORDER.map((s) => [s, 0])) as Record<ScissorSkill, number>;
+    for (const l of LEVELS) out[l.skill] += 1;
+    return out;
+  }, []);
+  // Curve-only readouts: stroke length on the paper, and how much of the
+  // *result* is smoothly curved. Both come from the same geometry as the score.
+  const curveInfo = useMemo(() => {
+    if (cut.kind !== 'curve') return null;
+    const stroke = visibleStroke(preset, cut);
+    return {
+      length: stroke?.length ?? 0,
+      error: stroke?.error ?? 0,
+      inflections: Math.abs(cut.amplitude) <= CURVE_AMPLITUDE_EPS ? 0 : Math.max(0, cut.bends - 1),
+    };
+  }, [cut, preset]);
+  const liveCurveRatio = useMemo(
+    () => (cut.kind === 'curve' ? curveRatio(result.paper) : 0),
+    [cut.kind, result.paper],
+  );
+  const bendWord =
+    cut.kind !== 'curve'
+      ? ''
+      : Math.abs(cut.amplitude) <= CURVE_AMPLITUDE_EPS
+        ? '直'
+        : cut.amplitude > 0
+          ? '外凸'
+          : '内凹';
 
   return (
     <>
@@ -209,6 +244,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
           <span className={`chip ${level.cutCount > 1 ? 'chip--red' : 'chip--gold'}`}>
             {level.cutSummary}
           </span>
+          <span className="chip chip--teal">剪刀能力 · {SKILL_META[level.skill].label}</span>
           <span className={`chip ${progress[level.id]?.cleared ? 'chip--teal' : ''}`}>
             {progress[level.id]?.cleared ? '已通关' : '未通关'}
           </span>
@@ -219,6 +255,8 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
       <p className="lede" style={{ maxWidth: 760, marginTop: 12 }}>
         {level.brief}
       </p>
+
+      <SkillLadder current={level.skill} counts={skillCounts} />
 
       <section className="howto" aria-label="操作说明">
         <button
@@ -251,7 +289,9 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
                 ? '「角度 / 距中心 / 剪哪侧」三个控件，滑块松手即重算。'
                 : cut.kind === 'notch'
                   ? '「方向 / 顶点距中心 / 张口宽度」三个滑块，松手即重算。'
-                  : '「形状 / 方位 / 距中心 / 半宽 / 长宽比 / 转角」，松手即重算。'}
+                  : cut.kind === 'curve'
+                    ? '「角度 / 距中心 / 弯曲」三个滑块，加「弯折」三档（弧线 / S 形 / 波浪），松手即重算。'
+                    : '「形状 / 方位 / 距中心 / 半宽 / 长宽比 / 转角」，松手即重算。'}
             </li>
             <li>
               <b>看差</b>：右侧「展开预览」边拖边比对；青色是<em>多剪</em>的纸，金色是<em>少剪</em>的纸，
@@ -265,7 +305,8 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
         )}
         <p className="howto__drag">
           画布直接拖：直线拖两端圆点旋转、拖线身平移；折剪<strong>拖顶点改深度</strong>、
-          <strong>拖两臂改方向</strong>；镂空拖圆心改位置、拖轮廓改转角。
+          <strong>拖两臂改方向</strong>；曲线<strong>拖菱形手柄改弯曲</strong>、拖两端圆点转向；
+          镂空拖圆心改位置、拖轮廓改转角。
         </p>
       </section>
 
@@ -512,10 +553,144 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
                   />
                 </div>
               </>
+            ) : cut.kind === 'curve' ? (
+              <>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">角度</span>
+                    <span className="control__value mono">{Math.round(cut.angle * 2) / 2}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={179.5}
+                    step={0.5}
+                    value={Math.round(cut.angle * 2) / 2}
+                    disabled={!canPlay}
+                    aria-label="切口法线角度（度）"
+                    onChange={(e) => updateCut(active, { ...cut, angle: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">距中心</span>
+                    <span className="control__value mono">{cut.offset.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-1.6}
+                    max={1.6}
+                    step={0.01}
+                    value={cut.offset}
+                    disabled={!canPlay}
+                    aria-label="切口与纸包中心的距离"
+                    onChange={(e) => updateCut(active, { ...cut, offset: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">弯曲</span>
+                    <span className="control__value mono">
+                      {cut.amplitude >= 0 ? '+' : '−'}
+                      {Math.abs(cut.amplitude).toFixed(2)}
+                      <em className="control__tag" data-flat={Math.abs(cut.amplitude) <= CURVE_AMPLITUDE_EPS}>
+                        {bendWord}
+                      </em>
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-1}
+                    max={1}
+                    step={0.01}
+                    value={cut.amplitude}
+                    disabled={!canPlay}
+                    aria-label="弯曲幅度，0 为直线"
+                    onChange={(e) => updateCut(active, { ...cut, amplitude: Number(e.target.value) })}
+                  />
+                  <div className="control__scale">
+                    <span>内凹</span>
+                    <span>0 = 直线</span>
+                    <span>外凸</span>
+                  </div>
+                </div>
+
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">弯折</span>
+                    <span className="control__value mono">
+                      {cut.bends === 1 ? '1 段弧' : cut.bends === 2 ? '1 个拐点' : '2 个拐点'}
+                    </span>
+                  </div>
+                  <div className="segmented" role="group" aria-label="弯折次数">
+                    {(
+                      [
+                        [1, '弧线'],
+                        [2, 'S 形'],
+                        [3, '波浪'],
+                      ] as [CurveBends, string][]
+                    ).map(([n, label]) => (
+                      <button
+                        key={n}
+                        className={`segmented__item${cut.bends === n ? ' is-active' : ''}`}
+                        aria-pressed={cut.bends === n}
+                        onClick={() => updateCut(active, { ...cut, bends: n })}
+                        disabled={!canPlay}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="control__scale">
+                    <span>刀不拐弯</span>
+                    <span>转向一次</span>
+                    <span>连续起伏</span>
+                  </div>
+                </div>
+
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">剪去哪一侧</span>
+                  </div>
+                  <div className="segmented" role="group" aria-label="选择剪去的一侧">
+                    <button
+                      className={`segmented__item${cut.removedSide === 'negative' ? ' is-active' : ''}`}
+                      onClick={() => updateCut(active, { ...cut, removedSide: 'negative' })}
+                      disabled={!canPlay}
+                    >
+                      法向负侧
+                    </button>
+                    <button
+                      className={`segmented__item${cut.removedSide === 'positive' ? ' is-active' : ''}`}
+                      onClick={() => updateCut(active, { ...cut, removedSide: 'positive' })}
+                      disabled={!canPlay}
+                    >
+                      法向正侧
+                    </button>
+                  </div>
+                </div>
+
+                <div className="readout" role="status" aria-live="off">
+                  <span>
+                    切口长 <b>{(curveInfo?.length ?? 0).toFixed(2)}</b>
+                  </span>
+                  <span>
+                    拐点 <b>{curveInfo?.inflections ?? 0}</b>
+                  </span>
+                  <span title="展开后：边界上平滑转向的长度占比，由目标几何实测">
+                    曲边占比 <b>{Math.round(liveCurveRatio * 100)}%</b>
+                  </span>
+                  <span title="折线逼近正弦曲线的最大偏差（板宽 2）；目标与作答用同一个采样器，所以评分不受影响">
+                    折线误差 <b>{(curveInfo?.error ?? 0).toFixed(4)}</b>
+                  </span>
+                </div>
+              </>
             ) : null}
 
             <p className="note" style={{ marginTop: 6 }}>
-              {level.cutLabels?.[active] ?? `第 ${active + 1} 刀`}：{describeCut(cut)}
+              {level.cutLabels?.[active] ?? `第 ${active + 1} 刀`} · {describeCut(cut)}
               <br />
               也可以直接在纸上拖动：拖线身平移、拖圆点旋转；折剪拖顶点改深度、拖两臂改方向。
             </p>
@@ -700,7 +875,12 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
                   <span className="level-item__body">
                     <span className="level-item__title">
                       {l.title}
-                      {l.cutCount > 1 ? ` · ${l.cutCount} 刀` : ''}
+                      {/* 「2 刀」 and 「两刀」 say the same thing; show the count
+                          only when it tells the player something new. */}
+                      {l.cutCount > 1 && !(l.skill === 'two' && l.cutCount === 2)
+                        ? ` · ${l.cutCount} 刀`
+                        : ''}{' '}
+                      · {SKILL_META[l.skill].label}
                     </span>
                     <span className="level-item__sub">{l.subtitle}</span>
                   </span>

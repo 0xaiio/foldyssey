@@ -6,12 +6,12 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v0.6.0（新增 5 个典藏图案 + 图案库） |
+| 版本 | v0.7.0（曲线剪 + 剪刀能力四级 + 5 个新关卡） |
 | 分支 | `main` |
 | 最新提交 | 见下方「提交记录」末行 |
-| 构建 | `npm run build` 通过（主包 ~251 kB；`AiPage` 独立 chunk 156 kB 懒加载） |
-| 测试 | `npm run test` → **81 passed \| 1 skipped**；`tools/ui_check.py` 45/45；`tools/ai_check.py` 14/14 |
-| 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.1.0 版本已核验；v0.2.0 待更新发布） |
+| 构建 | `npm run build` 通过（主包 282 kB / gzip 99 kB；`AiPage` 独立 chunk 156 kB 懒加载） |
+| 测试 | `npm run test` → **104 passed \| 1 skipped**（含 7 个结构渲染用例）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器；`node tools/ai_smoke.mjs` 通过 |
+| 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.0，更新发布后核验） |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session） |
 
@@ -34,15 +34,17 @@
 | 演示视频 | 未录制 | 脚本见 `submission/demo_script_60s.md`，需本人录屏 |
 | 官方投稿 | 未提交 | 需本人登录填写身份信息并确认条款 |
 | 真机 / Safari 回归 | 未执行 | 仅 Chromium 内核 + 390px 视口 |
-| v0.2.0 线上发布 | 待确认 | AI 功能只在本地验证过；线上仍为 v0.1.0，需「更新发布」 |
+| 浏览器级回归 | 阻塞 | 本机 Edge/Chromium 启动即退出（2026-10-31 起），`ui_check.py` 需在有浏览器的环境重跑 |
+| AI 曲线 | 未实现 | AI schema 仍只有 line/notch/hole/sawtooth，见「已知问题 0b」 |
 
 ## 已知问题
 
 0. 关卡 4–6 与 AI 生成的花瓣都使用**折剪**（V 形，两段），不是「一刀直线」：直线与任意
    对称群作用下的并集仍是半平面之交，只能得到凸多边形。UI 按实际组成标注（「1 个折剪」「7 刀」），
    不混称一刀。
-0b. AI 生成的图案**没有曲线**：可以有八瓣、锯齿、成圈镂空，但真实窗花那种连绵曲线花瓣需要
-   曲线切割，与「一刀 / 折剪」的语义冲突，本版明确不做。
+0b. AI 生成的图案**仍然没有曲线**：关卡与创作台已经支持曲线剪（`curve`），但 AI 的输出 schema
+   没有 curve 元素，所以「一句话生成」只能产出直线 / 折剪 / 镂空。这是刻意的范围控制：
+   曲线参数空间更大，需要先观察真人怎么调，再决定让模型怎么给。
 
 1. `tools/shots/*.png` 每次运行验证脚本都会被覆盖，产生 Git 噪声（可接受）。
 2. 工坊的「自定义纸色」不进入撤销历史（只记录在 present 状态，撤销会跳回上一个快照）。
