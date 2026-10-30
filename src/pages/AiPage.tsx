@@ -214,12 +214,16 @@ export function AiPage() {
               <div className="ai-chips">
                 <span className="chip">{describeDesign(result.design)}</span>
                 <span className="chip chip--gold">保留 {formatPercent(result.keepRatio, 0)}</span>
+                {result.design.cutCount > 0 && (
+                  <span className="chip chip--red">{result.design.structure.petal > 0 ? '含花瓣' : '纯直线'}</span>
+                )}
+                {result.attempt > 1 && <span className="chip">重试后成功</span>}
                 <span className="chip">{result.elapsedMs} ms</span>
               </div>
 
               {result.warnings.length > 0 && (
                 <div className="ai-warn">
-                  {result.warnings.map((w) => (
+                  {result.warnings.slice(0, 6).map((w) => (
                     <div key={w}>· {w}</div>
                   ))}
                 </div>
@@ -251,8 +255,9 @@ export function AiPage() {
               </div>
 
               <p className="note" style={{ marginTop: 10 }}>
-                模型只给出参数建议（折叠阶数、切口类型、尺寸、配色）；路径、孔洞与面积由
-                <code> src/geometry</code> 计算。参数已通过 Schema 校验，未知取值会被拒绝。
+                模型只给出参数建议（折叠阶数、元素类型、尺寸、配色）；路径、孔洞与面积由
+                <code> src/geometry</code> 计算。越界数值会被收进合法范围，写错的枚举会按语义映射，
+                无法实现的结构会被替换成该主题的默认层次——所以这里几乎不会出现“参数不合法”。
               </p>
             </div>
           )}
@@ -261,7 +266,7 @@ export function AiPage() {
 
       <p className="note" style={{ marginTop: 18, maxWidth: 760 }}>
         说明：这里生成的是<strong>数字图案</strong>，不是经过核验的实体折剪模板。
-        四重镜像下的孔洞可以真实剪出，但本版没有提供可打印的折序与比例尺。
+        八折（D4）下的花瓣与镂空在真实折剪中都能剪出，但本版没有提供可打印的折序与比例尺。
       </p>
       {toastNode}
     </>

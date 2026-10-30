@@ -152,7 +152,7 @@ def main() -> int:
         title = cdp.eval("document.querySelector('.ai-preview')?.closest('.reveal')?.querySelector('h3')?.textContent || ''")
         chips = cdp.eval("[...document.querySelectorAll('.ai-chips .chip')].map(c=>c.innerText).join(' | ')")
         check("ai: model returned a renderable design", True, str(title))
-        check("ai: geometry summary shown", "切口" in (chips or ""), str(chips)[:80])
+        check("ai: geometry summary shown", "刀" in (chips or ""), str(chips)[:80])
         check("ai: preview has real paths",
               (cdp.eval("document.querySelectorAll('.ai-preview svg path').length") or 0) >= 1,
               str(cdp.eval("document.querySelectorAll('.ai-preview svg path').length")))

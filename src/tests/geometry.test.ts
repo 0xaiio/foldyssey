@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyCuts, cutFromAngle, notchCut, normalizeCut, removedPacketRegion } from '../geometry/cut';
+import {
+  applyCuts,
+  cutFromAngle,
+  holeCut,
+  notchCut,
+  normalizeCut,
+  removedPacketRegion,
+} from '../geometry/cut';
 import { getPreset, patchRenderMatrix } from '../geometry/fold';
 import {
   PAPER_AREA,
@@ -303,7 +310,7 @@ describe('puzzle: shipped levels', () => {
           expect(Math.abs(cut.angle * 2 - Math.round(cut.angle * 2)), level.id).toBeLessThan(1e-6);
           expect(Math.abs(cut.distance * 100 - Math.round(cut.distance * 100)), level.id).toBeLessThan(1e-6);
           expect(Math.abs(cut.width * 100 - Math.round(cut.width * 100)), level.id).toBeLessThan(1e-6);
-        } else {
+        } else if (cut.kind === 'line') {
           const deg = cutAngleDegLocal(cut);
           expect(Math.abs(deg * 2 - Math.round(deg * 2)), level.id).toBeLessThan(1e-6);
           expect(Math.abs(cut.offset * 100 - Math.round(cut.offset * 100)), level.id).toBeLessThan(1e-6);
@@ -393,5 +400,76 @@ describe('geometry: bent (notch) cuts', () => {
     const legacy = { nx: Math.SQRT1_2, ny: Math.SQRT1_2, offset: 0.4, removedSide: 'negative' as const };
     const out = applyCuts('orthogonal2', [legacy as never]);
     expect(multiPolygonArea(out.paper)).toBeCloseTo(4 - 0.64, 9);
+  });
+});
+
+describe('geometry: closed cut-outs (镂空)', () => {
+  const hole = (size: number, radius = 0.7) => holeCut('diamond', 45, radius, size, 1.6, 22.5);
+
+  it('a bigger hole removes more paper', () => {
+    const small = multiPolygonArea(applyCuts('radial8', [hole(0.05)]).removed);
+    const big = multiPolygonArea(applyCuts('radial8', [hole(0.15)]).removed);
+    expect(big).toBeGreaterThan(small * 2);
+  });
+
+  it('8-fold turns one cut-out into a ring of holes', () => {
+    const out = applyCuts('radial8', [hole(0.08, 0.75)]);
+    const holes = out.paper.reduce((n, p) => n + Math.max(0, p.length - 1), 0);
+    expect(holes).toBeGreaterThanOrEqual(4);
+    // and the paper stays in one piece around them
+    expect(out.paper).toHaveLength(1);
+  });
+
+  it('a hole at the centre stays a single hole under any fold', () => {
+    const centred = applyCuts('radial8', [holeCut('circle', 0, 0, 0.2, 1, 0)]);
+    const holes = centred.paper.reduce((n, p) => n + Math.max(0, p.length - 1), 0);
+    expect(holes).toBe(1);
+  });
+
+  it('the three shapes have the areas their names imply', () => {
+    const area = (shape: 'diamond' | 'circle' | 'leaf') =>
+      multiPolygonArea(applyCuts('radial8', [holeCut(shape, 0, 0, 0.2, 1, 0)]).removed);
+    const circle = area('circle');
+    const diamond = area('diamond');
+    const leaf = area('leaf');
+    // unit-radius-ish: circle ~ pi r^2, diamond ~ 2r^2, leaf strictly between
+    expect(circle).toBeGreaterThan(diamond);
+    expect(leaf).toBeLessThan(circle);
+    expect(leaf).toBeGreaterThan(diamond * 0.5);
+  });
+
+  it('a hole plus a rim cut never blanks the sheet (union regression)', () => {
+    // This used to return an empty paper: the rim sliver made one patch region
+    // degenerate, and the all-or-nothing union threw the whole sheet away.
+    const rim = cutFromAngle(22.5, 1.17, 'positive');
+    const a = applyCuts('radial8', [hole(0.1, 0.88), rim]);
+    const b = applyCuts('radial8', [rim, hole(0.1, 0.88)]);
+    expect(multiPolygonArea(a.paper)).toBeGreaterThan(1);
+    expect(multiPolygonArea(a.paper)).toBeCloseTo(multiPolygonArea(b.paper), 6);
+  });
+
+  it('the surviving paper is always a subset of the original square', () => {
+    const cuts = [
+      holeCut('leaf', 30, 0.6, 0.09, 2.2, 20),
+      notchCut(22.5, 0.5, 0.3),
+      cutFromAngle(22.5, 0.3, 'negative'),
+    ];
+    const out = applyCuts('radial8', cuts);
+    for (let i = -10; i < 10; i++) {
+      for (let j = -10; j < 10; j++) {
+        const p = { x: (i + 0.5) / 10, y: (j + 0.5) / 10 };
+        if (!pointInMultiPolygon(p, out.paper)) continue;
+        expect(Math.abs(p.x)).toBeLessThan(1);
+        expect(Math.abs(p.y)).toBeLessThan(1);
+      }
+    }
+  });
+
+  it('degenerate holes are rejected without crashing', () => {
+    expect(normalizeCut(holeCut('circle', 0, 0.5, 0, 1, 0))).toBeNull();
+    expect(normalizeCut({ ...holeCut('circle', 0, 0.5, 0.1, 1, 0), size: Number.NaN })).toBeNull();
+    const out = applyCuts('radial8', [holeCut('circle', 0, 0.5, 0, 1, 0)]);
+    expect(multiPolygonArea(out.paper)).toBeCloseTo(4, 9);
+    expect(out.warnings.length).toBe(1);
   });
 });

@@ -41,3 +41,13 @@ EDGE_ATTACH_PORT=9231 python tools/ui_check.py
 ```
 
 截图会重新写入 `tools/shots/`（覆盖旧图）。
+
+## 2026-10-31 追加：AI 图案质量
+
+| # | 文件 | 内容 | 用途 |
+|---|---|---|---|
+| 10 | `screenshots/10-ai-gallery.png` | 三个 AI 样例 + 四个主题预设的真实渲染对照（锯齿边 / 花心 / 花瓣 / 镂空） | 证明图案已具备剪纸语汇 |
+| 11 | `screenshots/11-pattern-tuning.png` | 元素配比扫描（浅齿 vs 深齿、宽齿 vs 窄齿） | 证明参数是实测收敛的，不是拍脑袋 |
+
+这两张由临时脚本渲染（`src/tests/_vgallery.test.ts` / `_cand.test.ts`，用完已删），
+生成的是**真实几何输出**，不是 AI 概念图。

@@ -5,13 +5,16 @@
  * so we never store a cached image as the source of truth.
  */
 
-import type { StraightCut } from '../geometry/cut';
+import type { Cut } from '../geometry/cut';
 import type { FoldPresetId } from '../geometry/fold';
 
 export const ARTWORKS_KEY = 'foldyssey.artworks.v1';
 export const PROGRESS_KEY = 'foldyssey.progress.v1';
 export const DRAFT_KEY = 'foldyssey.draft.v1';
-export const SCHEMA_VERSION = 1;
+// 1 -> 2: `cuts` became a union (line | notch | hole). The change is additive
+// (a v1 line cut without `kind` is still read as a line), so old documents keep
+// loading; the version is bumped so future migrations have a clean baseline.
+export const SCHEMA_VERSION = 2;
 
 export type StyleDoc = { paper: string; background: string };
 
@@ -24,7 +27,7 @@ export type ArtworkDoc = {
   createdAt: number;
   updatedAt: number;
   foldPreset: FoldPresetId;
-  cuts: StraightCut[];
+  cuts: Cut[];
   style: StyleDoc;
   manufacturability: Manufacturability;
 };
@@ -87,14 +90,18 @@ function isArtwork(value: unknown): value is ArtworkDoc {
     typeof v.title === 'string' &&
     typeof v.foldPreset === 'string' &&
     Array.isArray(v.cuts) &&
-    v.schemaVersion === SCHEMA_VERSION
+    // v1 documents stay readable: a line cut without `kind` is still a line.
+    (v.schemaVersion === 1 || v.schemaVersion === SCHEMA_VERSION)
   );
 }
 
 export function loadArtworks(): ArtworkDoc[] {
   const raw = readJson<unknown>(ARTWORKS_KEY, []);
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isArtwork).sort((a, b) => b.updatedAt - a.updatedAt);
+  return raw
+    .filter(isArtwork)
+    .map((doc) => ({ ...doc, schemaVersion: SCHEMA_VERSION }))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export function saveArtwork(doc: ArtworkDoc): { ok: boolean; error?: string } {

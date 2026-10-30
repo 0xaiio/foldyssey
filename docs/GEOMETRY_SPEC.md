@@ -122,6 +122,51 @@ removedSide = 'positive'  →  移除  { p : n·p > offset }
   （例如 0° 或 45°，它们的轨道只有 4 个元素）。
 - 折剪与直线可以叠加：直线负责花心，折剪负责花瓣。
 
+### 4.2 镂空（closed cut-out）
+
+第三种原语：在纸包里**戳一个闭合的小形状**，沿轮廓剪一圈把它取走。剪刀同样不离开纸，
+但它不是"一刀"，UI 上也从不这样标注。
+
+```
+{ kind: 'hole', shape, angle, radius, size, stretch, rotation }
+```
+
+轮廓是一条**超椭圆**，用同一个参数化覆盖三种形状：
+
+```
+r(θ) = (|cos θ|^p + |sin θ|^p)^(-1/p)
+  p = 1    → 菱形（直边）
+  p = 2    → 圆 / 椭圆
+  p = 0.62 → 叶形（两端尖、两侧内凹，即 柳叶纹 / 花瓣纹）
+```
+
+再按 `rotation` 旋转、平移到 `(radius, angle)`，最后与纸包求交：
+
+```
+D_hole = packet ∩ ring(shape, size, stretch, rotation, radius, angle)
+```
+
+在 `radial8` 下，一个镂空展开成**一圈 8 个孔**——这正是团花"细密"的来源。
+若 `radius = 0`，8 份重合为 1 个中心孔（有测试）。
+
+### 4.3 锯齿（sawtooth row）
+
+锯齿不是新原语，而是**在纸包边缘等距压一排菱形孔**：
+
+```
+for i in 0..count-1:
+  θ_i   = phase + (i + 0.5) · span / count      # span = 45°（radial8）或 180°
+  rim   = 沿 θ_i 从原点射出的第一条纸包边距离
+  D_i   = 菱形孔，中心落在 rim 上，径向半长 depth，切向半宽 pitch/2
+```
+
+菱形有一半在纸外，留在纸内的一半就是**一个三角齿**。展开后得到 `8 × count` 个齿
+（`count = 4` → 32 齿，`count = 5` → 40 齿），这是民间剪纸最典型的外缘处理。
+齿深与齿距都从边缘量起，所以楔形收窄处齿形仍然均匀。
+
+**注意**：`sawtooth` 与 `rim` 不要同时使用——`rim` 会把齿所在的那圈纸整体削掉。
+
+
 ---
 
 ## 5. 展开与结果
@@ -142,6 +187,28 @@ S = ⋃ᵢ ( Pᵢ \ fᵢ⁻¹( D ∩ fᵢ(Pᵢ) ) )
 | I3 | `Area(S) + Area(removed) = 4` | `paper + removed = the original sheet` |
 | I4 | 相同输入 → 相同输出（逐字节） | `same input and same seed give byte-identical geometry` |
 | I5 | 变换是等距且自逆 | `each patch transform is an isometry and its own inverse` |
+
+### 5.1 实现方式：用「原纸 − 已剪」而不是「并各片区」
+
+`applyCuts()` 的权威结果按 `S = P \ ⋃ᵢ fᵢ⁻¹(D)` 计算，而不是把各片区的剩余区域并起来。
+两者作为点集相等，但后者有一个致命的鲁棒性问题：**一个片区退化，整张纸会变成空**。
+
+真实故障（2026-10-30 修复）：`hole` 在纸中央挖出小孔后，再叠一刀 `rim`，
+某个片区的剩余区域出现"孔环与外环相切"的退化多边形，`polygon-clipping` 抛异常，
+`unionMP` 的 `try/catch` 把整个并集当成空集返回——纸直接消失。
+`hole + rim` 与 `rim + hole` 因此得到不同结果（3.70 vs 0.00），有回归测试锁定。
+
+修法两条：
+
+1. `paper = differenceMP(fullPaper, removed)`；`removed` 全是简单多边形（无孔），不会退化。
+2. `unionMP` 改为**增量合并**：某个成员合并失败时保留已有累积，而不是整体清空。
+
+补充不变量：
+
+| 编号 | 不变量 | 测试 |
+|---|---|---|
+| I6 | 切口顺序不影响结果（可交换） | `a hole plus a rim cut never blanks the sheet (union regression)` |
+| I7 | 镂空数量随折数放大（8 折 → 一圈 8 个） | `8-fold turns one cut-out into a ring of holes` |
 
 ---
 

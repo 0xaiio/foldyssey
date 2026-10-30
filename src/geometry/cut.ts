@@ -1,7 +1,7 @@
 /**
  * Cut semantics on a folded packet.
  *
- * Two primitives, both "the scissors never leave the paper":
+ * Three primitives, all physically executable with scissors:
  *
  *  1. `line`  — a straight cut. The removed area is a half-plane
  *     `{ p : n·p < offset }` or `{ p : n·p > offset }`, |n| = 1.
@@ -10,6 +10,11 @@
  *     This is what gives a folded pattern its **petals**; a straight cut can
  *     only ever remove a convex piece and therefore only produces convex
  *     polygons (octagons, crosses, rings).
+ *  3. `hole` — a closed cut-out entirely inside the packet: pierce, cut around
+ *     a small closed shape, remove it. Under an n-fold preset it unfolds into a
+ *     **ring of n holes**, which is where the fine texture of a real 团花 /
+ *     snowflake comes from. Not a "one straight cut" — it is scissor work, and
+ *     it is labelled that way in the UI.
  *
  * The removed area (never a zero-width line!) is intersected with the packet,
  * then pulled back through every patch's inverse isometry, so every physical
@@ -52,7 +57,34 @@ export type NotchCut = {
   width: number;
 };
 
-export type Cut = LineCut | NotchCut;
+/** Silhouette of a closed cut-out. */
+export const HOLE_SHAPES = ['diamond', 'circle', 'leaf'] as const;
+export type HoleShape = (typeof HOLE_SHAPES)[number];
+
+/**
+ * A closed cut-out inside the packet. Its outline is a superellipse, so the
+ * three shapes share one parameterisation and one polygoniser:
+ *
+ *   exponent 1   -> diamond (rhombus, straight edges)
+ *   exponent 2   -> circle / ellipse
+ *   exponent 0.6 -> leaf: pointed at both tips, concave sides (petal, 柳叶纹)
+ */
+export type HoleCut = {
+  kind: 'hole';
+  shape: HoleShape;
+  /** Where the hole sits inside the packet, degrees. */
+  angle: number;
+  /** Distance from the packet centre to the hole centre. */
+  radius: number;
+  /** Half-width of the hole. */
+  size: number;
+  /** Height / width ratio along the hole's own axes. */
+  stretch: number;
+  /** Orientation of the hole's own axes, degrees. */
+  rotation: number;
+};
+
+export type Cut = LineCut | NotchCut | HoleCut;
 
 /** Backwards-compatible alias: the straight-line primitive. */
 export type StraightCut = LineCut;
@@ -102,10 +134,70 @@ export function notchCut(angleDeg: number, distance: number, width: number): Not
   return { kind: 'notch', angle: angleDeg, distance, width };
 }
 
+export function holeCut(
+  shape: HoleShape,
+  angle: number,
+  radius: number,
+  size: number,
+  stretch = 1,
+  rotation = 0,
+): HoleCut {
+  return { kind: 'hole', shape, angle, radius, size, stretch, rotation };
+}
+
+const HOLE_EXPONENT: Record<HoleShape, number> = {
+  diamond: 1,
+  circle: 2,
+  leaf: 0.62,
+};
+
+/**
+ * Outline of a hole as a closed ring. `size` is the half-width, `stretch` the
+ * height/width ratio; the ring is then rotated and translated to (radius,
+ * angle) inside the packet.
+ */
+export function holeOutline(cut: HoleCut): Ring {
+  const p = HOLE_EXPONENT[cut.shape] ?? 2;
+  const segments = cut.shape === 'circle' ? 32 : 24;
+  const a = cut.size;
+  const b = cut.size * cut.stretch;
+  const rot = (cut.rotation * Math.PI) / 180;
+  const cosR = Math.cos(rot);
+  const sinR = Math.sin(rot);
+  const pos = (cut.angle * Math.PI) / 180;
+  const cx = Math.cos(pos) * cut.radius;
+  const cy = Math.sin(pos) * cut.radius;
+  const ring: Ring = [];
+  for (let i = 0; i < segments; i++) {
+    const t = (2 * Math.PI * i) / segments;
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    // Superellipse in polar form: r = (|cos|^p + |sin|^p)^(-1/p).
+    const denom = Math.abs(c) ** p + Math.abs(s) ** p;
+    if (denom <= 1e-12) continue;
+    const r = denom ** (-1 / p);
+    const x = a * r * c;
+    const y = b * r * s;
+    ring.push({ x: cx + x * cosR - y * sinR, y: cy + x * sinR + y * cosR });
+  }
+  return ring;
+}
+
 export function normalizeCut(cut: Cut | null | undefined): Cut | null {
   if (!cut) return null;
   // Documents saved before v0.3 stored straight cuts without a `kind` field.
   const kind = (cut as { kind?: string }).kind ?? 'line';
+  if (kind === 'hole') {
+    const { shape, angle, radius, size, stretch, rotation } = cut as HoleCut;
+    if (![angle, radius, size, stretch, rotation].every((v) => typeof v === 'number' && Number.isFinite(v))) {
+      return null;
+    }
+    if (!HOLE_SHAPES.includes(shape)) return null;
+    if (size <= 1e-4) return null;
+    if (radius < 0) return null;
+    if (stretch <= 1e-3) return null;
+    return { kind: 'hole', shape, angle, radius, size, stretch, rotation };
+  }
   if (kind === 'notch') {
     const { angle, distance, width } = cut as NotchCut;
     if (![angle, distance, width].every((v) => typeof v === 'number' && Number.isFinite(v))) return null;
@@ -123,15 +215,20 @@ export function normalizeCut(cut: Cut | null | undefined): Cut | null {
 
 export const isLineCut = (cut: Cut): cut is LineCut => cut.kind === 'line';
 export const isNotchCut = (cut: Cut): cut is NotchCut => cut.kind === 'notch';
+export const isHoleCut = (cut: Cut): cut is HoleCut => cut.kind === 'hole';
 
 /** Angle of the cut axis in degrees, folded into [0, 180). */
 export function cutAngleDeg(cut: Cut): number {
   const a =
-    cut.kind === 'notch' ? cut.angle : (Math.atan2(cut.ny, cut.nx) * 180) / Math.PI;
+    cut.kind === 'line' ? (Math.atan2(cut.ny, cut.nx) * 180) / Math.PI : cut.angle;
   return ((a % 180) + 180) % 180;
 }
 
 export function describeCut(cut: Cut): string {
+  if (cut.kind === 'hole') {
+    const shape = cut.shape === 'leaf' ? '叶形' : cut.shape === 'circle' ? '圆形' : '菱形';
+    return `镂空：${shape} 半宽 ${cut.size.toFixed(2)}，中心距 ${cut.radius.toFixed(2)}，方位 ${Math.round(cut.angle)}°`;
+  }
   if (cut.kind === 'notch') {
     return `折剪：方向 ${Math.round(cut.angle)}°，顶点距中心 ${cut.distance.toFixed(2)}，张口 ${cut.width.toFixed(2)}`;
   }
@@ -209,6 +306,12 @@ export function removedPacketRegion(preset: FoldPreset, cut: Cut): MultiPolygon 
   const norm = normalizeCut(cut);
   if (!norm) return [];
 
+  if (norm.kind === 'hole') {
+    const ring = holeOutline(norm);
+    if (ring.length < 3) return [];
+    return intersectMP(poly(preset.packet), poly(ring));
+  }
+
   if (norm.kind === 'notch') {
     const tri = notchTriangle(norm);
     if (tri.length < 3) return [];
@@ -233,6 +336,21 @@ export function removedPacketRegion(preset: FoldPreset, cut: Cut): MultiPolygon 
 
 export function transformMP(mp: MultiPolygon, mat: Mat): MultiPolygon {
   return mp.map((p) => p.map((ring) => ring.map((pt) => applyMat(mat, pt))));
+}
+
+/**
+ * The whole sheet, derived from the patch domains. Memoised per preset because
+ * it only depends on the fold, and unioning 8 sectors on every drag would be
+ * wasteful.
+ */
+const _paperCache = new Map<string, MultiPolygon>();
+function paperOf(preset: FoldPreset): MultiPolygon {
+  const hit = _paperCache.get(preset.id);
+  if (hit) return hit;
+  const paper = unionMP(...preset.patches.map((p) => poly(p.domain) as MultiPolygon));
+  if (_paperCache.size > 16) _paperCache.clear();
+  _paperCache.set(preset.id, paper);
+  return paper;
 }
 
 /** Apply a sequence of cuts to a folded preset and unfold the result. */
@@ -274,8 +392,15 @@ export function applyCuts(presetId: string, cuts: Cut[]): CutOutcome {
     });
   }
 
-  const paper = unionMP(...state.map((s) => s.region));
+  // The authoritative sheet is `P \ removed`, not `union(patch regions)`.
+  //
+  // The two are equal as point sets, but the difference form is far more
+  // robust: `removed` is a union of simple slivers/triangles (no holes), while
+  // a patch region that has had a hole cut into it can degenerate when a later
+  // cut grazes that hole. It also makes `paper ⊆ P` true by construction,
+  // which is one of the geometry invariants we test.
   const removed = unionMP(...state.map((s) => s.removed));
+  const paper = differenceMP(paperOf(preset), removed);
   const paperArea = multiPolygonArea(paper);
 
   return {

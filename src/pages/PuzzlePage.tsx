@@ -345,7 +345,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
                   </div>
                 </div>
               </>
-            ) : (
+            ) : cut.kind === 'notch' ? (
               <>
                 <div className="control">
                   <div className="control__head">
@@ -398,7 +398,7 @@ export function PuzzlePage({ levelId }: { levelId?: string }) {
                   />
                 </div>
               </>
-            )}
+            ) : null}
 
             <p className="note" style={{ marginTop: 6 }}>
               第 {active + 1} 刀：{describeCut(cut)}

@@ -1,7 +1,7 @@
 # AI 集成说明（AI_INTEGRATION）
 
-> 状态：**已上线（v0.2.0）**。运行时模型通过 WorkBuddy 云服务的 LLM 通道接入，
-> 无需用户提供 API Key。本文记录它的契约、边界与验证方式。
+> 状态：**已上线（v0.4.0）**。运行时模型通过 WorkBuddy 云服务的 LLM 通道接入，
+> 无需用户提供 API Key。本文记录它的契约、失败分析、容错策略与验证方式。
 
 ## 1. 角色边界：模型不画图
 
@@ -9,56 +9,110 @@
 用户一句话
    └─ 模型（glm-5.3-flash 等，云端）
         └─ 只返回受约束的 JSON 参数（枚举 + 数值范围）
-             └─ zod 校验 → 拒绝 / 降级
-                  └─ 几何引擎：motif → 直线切割 → 逐层逆映射 → 展开
-                       └─ SVG 渲染 / 评分 / 导出
+             └─ 归一（同义词映射 / 数值收边 / 丢未知键）→ 结构补足 → 几何修复
+                  └─ 几何引擎：元素 → 直线 / 折剪 / 镂空 / 锯齿 → 逐层逆映射 → 展开
+                       └─ SVG 渲染 / 导出
 ```
 
-模型**不生成图片、不生成 SVG、不生成代码**。它输出的每个数值都会落在
-`schema.ts` 的枚举与区间内，超出即整体拒绝。
+模型**不生成图片、不生成 SVG、不生成代码**。它输出的每个数值都会落进
+`schema.ts` 的枚举与区间；落不进时被**改写**而不是被拒绝（第 4 节）。
 
-## 2. 数据契约
+## 2. 数据契约（v2）
 
 ```json
 {
   "theme": "spring_festival",
   "style": "traditional_papercut",
-  "symmetry": { "type": "quad", "order": 4 },
+  "symmetry": { "order": 8 },
   "palette": { "paper": "#B93645", "background": "#F8F3E9" },
-  "motifs": [
-    { "type": "diamond", "size": 0.45, "rotation": 45 },
-    { "type": "pinwheel", "size": 0.30, "rotation": 22 }
+  "elements": [
+    { "type": "core", "size": 0.3 },
+    { "type": "petal", "angle": 22.5, "tip": 0.46, "width": 0.2 },
+    { "type": "hole", "shape": "diamond", "angle": 22.5, "radius": 0.76, "size": 0.06, "stretch": 2.4, "rotation": 0 },
+    { "type": "sawtooth", "count": 4, "depth": 0.1, "pitch": 0.2, "phase": 0 }
   ],
-  "title": "八瓣红窗花",
-  "note": "四重镜像下以菱形孔为主，斜切风车刀让瓣缘微微旋转。"
+  "title": "八瓣迎春",
+  "note": "八折把每一刀复制成八份：开八边形花心、剪八道窄缝、缝端点一枚菱形，边缘再咬出三十二个锯齿。"
 }
 ```
 
-| 字段 | 允许值 | 越界处理 |
+| 字段 | 允许值 | 越界 / 未知时的处理 |
 |---|---|---|
-| `theme` | `spring_festival` / `snowflake` / `mid_autumn` / `modern_geo` | 拒绝 |
-| `style` | `traditional_papercut` / `minimal` / `geometric` | 拒绝 |
-| `symmetry.order` | **1 / 2 / 4**（本版只能折这几种） | 拒绝 |
-| `symmetry.type` | `none` / `mirror` / `quad` | 与 order 不一致时按 order 处理并提示 |
-| `palette.*` | `/^#[0-9a-fA-F]{6}$/` | 拒绝（防 CSS 注入） |
-| `motifs[].type` | `diamond` / `pinwheel` / `chamfer` / `band` / `wedge` | 拒绝 |
-| `motifs[].size` | `0.08 – 0.95` | 拒绝 |
-| `motifs[].rotation` | `0 – 179` | 拒绝 |
-| `motifs` 数量 | `1 – 3` | 拒绝 |
-| `title` / `note` | 先截断到 24 / 80 字再校验 | 不因超长而丢整份设计 |
-| 未知字段 | — | `<schema>.strict()` 拒绝 |
+| `theme` | `spring_festival` / `snowflake` / `mid_autumn` / `modern_geo` | **语义映射**（`winter_snowflake`→`snowflake`、`flower`→`spring_festival`…），再退到用户输入关键词推断 |
+| `style` | `traditional_papercut` / `minimal` / `geometric` | 同上映射 |
+| `symmetry.order` | **1 / 2 / 4 / 8** | 6→8（六重不可折）、3→4、>8→8；缺省按主题（花鸟主题 8，几何主题 4） |
+| `palette.*` | `#RRGGBB` | `#fff` / `rgb()` / 英文色名 → 规范化为 `#RRGGBB`；无法识别 → 主题色 |
+| `elements[].type` | `core` / `petal` / `hole` / `sawtooth` / `rim` / `slash` | 命名的未知类型（dragon、rabbit…）丢弃并提示；未命名时按字段推断 |
+| `elements` 数量 | `1 – 6` | 超出截断并提示；空则用主题预设 |
+| 数值 | 每个字段有 `min/max` | **clamp** 到区间，不拒绝 |
+| 未知字段 | — | 丢弃（不再 `.strict()` 拒绝整份文档） |
 
-**motif → 切线的映射是固定的**（`motifToCut()`），同样的数值永远得到同样的纸：
+### 元素 → 几何（确定性映射，`elementToCuts()`）
 
-| motif | 几何含义 |
+| 元素 | 几何 | 八折展开后 |
+|---|---|---|
+| `core` | 直线切负侧，`offset = size`（radial8）/ `size/√2`（四折） | 正八边形 / 菱形中心孔 |
+| `petal` | 折剪：顶点在 `tip`、张口 `width` | 8 道放射窄缝 |
+| `hole` | 闭合超椭圆孔：`diamond`(p=1) / `circle`(p=2) / `leaf`(p=0.62) | 一圈 8 个孔 |
+| `sawtooth` | 沿纸包边缘等距压 `count` 枚菱形（半个在纸外） | `8×count` 个三角齿（锯齿边） |
+| `rim` | 直线切正侧，`offset = 1.28 − inset×0.9` | 外缘削成正八边形 |
+| `slash` | 任意直线 | 不对称缺口 |
+
+`hole` 与 `petal` 取同一 `angle` 时，孔会接在缝的末端，形成"箭头花瓣"——
+这是三张样例图案的共同结构。
+
+## 3. 为什么旧版本的图案"不像窗花"
+
+不是审美问题，是**表达力上限**：
+
+| 限制 | 后果 | 证据 |
+|---|---|---|
+| `FOLD_BY_ORDER` 只有 1/2/4 | 八折团花（D4）引擎里已有，但 AI 路径到不了；"八瓣"只能靠四重镜像近似 | 12 条 prompt 实测，成功样本 3/3 都是 `orthogonal2` |
+| `motifToCut()` 只返回 `cutFromAngle` | 对称群作用下的直线切 = 若干半平面之交 = **凸多边形**，数学上不可能有花瓣、尖角、成圈的孔 | 见 `docs/GEOMETRY_SPEC.md` §3.1 与 `tools/shots/patterns.png` |
+| motifs 是 3 条互不相关的直线 | 无法表达"花心 + 一圈花瓣 + 一圈镂空 + 齿边"这种分层结构 | 旧 `motifToCut` 不接收 `theme`，四种主题共用一套映射 |
+| 没有 `sawtooth` | 外缘只能是方角或八边形，缺少年剪纸最典型的锯齿边 | 新候选对照：`tools/shots/cand6.png` |
+
+结论：**"四层折叠 + 一刀直线"确实太简单**，而且当时连八折都没接上。
+修复后的表达空间是 `4 种折叠 × 6 类元素（含多刀展开）× 12 刀`。
+
+## 4. 失败分析：那条"参数不符合范围"是怎么来的
+
+2026-10-30 用 12 条中文 prompt 打真实模型（`glm-5.3-flash`，temperature 0.8）统计：
+**9 / 12 失败**，其中：
+
+| 次数 | 具体原因 |
 |---|---|
-| `diamond` | 45° 角切，距离 `size/√2`，剪负侧 → 菱形孔 `|x|+|y| < size` |
-| `pinwheel` | 任意倾角（12–78°）的角切 → 四重镜像下是八边形风车孔 |
-| `chamfer` | 远端角落削平，`offset = 1.42 − size×0.55` → 展开后四个角被削 |
-| `band` | 90° 横切 → 一条横带被剪掉 |
-| `wedge` | 斜切，改的是剪影而非孔洞 |
+| 7 | `theme` 枚举不匹配：模型输出 `winter_snowflake` / `modern_minimal` / `flower` / `zodiac_rabbit` |
+| 1 | `motifs.1.size: Required`（模型漏字段） |
+| 1 | `motifs.2: Unrecognized key(s) in object: 'rotation2'`（模型多字段） |
+| 0 | JSON 解析失败 |
 
-## 3. 安全与成本
+根因不是模型"不听话"，而是**校验器单方面严格、提示词单方面含糊**：
+
+1. 提示词从未列出 `theme` / `style` / `symmetry.type` 的合法取值，模型只能猜；
+2. 每个对象都是 `.strict()`，多一个键就整份拒绝；
+3. 校验只有"通过 / 拒绝"两种结果，没有修复路径，错误直接怼到用户脸上；
+4. `order` 只允许 1/2/4，模型想给雪花写 6 时也会被拒。
+
+## 5. 修复后的校验与容错策略（四层）
+
+```
+JSON.parse
+  ├─ 失败 → 自动重试一次（temperature 0.2 + “只输出 JSON”指令）→ 仍失败才报错
+  └─ 成功
+       ├─ 第 1 层 coerceDesign()：同义词映射 / 数值 clamp / 丢未知键 / 补默认值
+       ├─ 第 2 层 designSchema：对“已归一”的文档做严格校验（此时不可能失败，作为自检）
+       ├─ 第 3 层 几何修复：这个折法表达不了的元素跳过；会剪光纸的元素跳过；
+       │            纸被剪光时逐刀回退；仍不可用则回退到该主题预设
+       └─ 第 4 层 结构补足：没有任何花瓣/镂空/锯齿时，补上该主题的标志性元素
+```
+
+判定原则：**只有"模型什么都没给"才算失败**；"给得不规范"一律改写并提示。
+
+`schema.ts` 的 `coerceDesign()` 对任何输入都是全函数（不抛异常），
+测试里用 `null / 42 / 字符串 / 数组 / 乱字段` 逐一验证仍能产出可渲染的设计。
+
+## 6. 安全与成本
 
 | 项 | 做法 |
 |---|---|
@@ -67,11 +121,11 @@
 | 并发 | 单飞：一次只允许一个请求在途 |
 | 频率 | 同一标签页两次生成间隔 ≥ 5 秒；每会话最多 12 次（`sessionStorage`） |
 | 超时 | 30 秒 `AbortController`，超时后提示可重试 |
-| 输出 | 只 `JSON.parse` 后走 zod；不 `eval`、不拼 HTML、不写 `innerHTML` |
+| 输出 | 只 `JSON.parse`；不 `eval`、不拼 HTML、不写 `innerHTML`；颜色只接受归一化后的 `#RRGGBB` |
 | 隐私 | 只发送用户输入的那一句描述；不发作品、进度或身份信息 |
-| 降级 | 任何失败都保留核心功能；`AI 灵感` 页是懒加载的独立 chunk，加载失败不影响其他页面 |
+| 降级 | 任何失败都保留核心功能；`AI 灵感` 页是懒加载的独立 chunk |
 
-## 4. 失败态
+## 7. 失败态
 
 | 情况 | `error.code` 前缀 | UI 行为 |
 |---|---|---|
@@ -81,30 +135,33 @@
 | 参数被拒 | `request_` | 提示换个说法重试 |
 | 网关 / 模型不可用 | `gateway_` `model_` | 「稍后重试」 |
 | 内部错误 | `internal_` | 提示稍后重试，保留 requestId 供排查 |
-| 模型没返回 JSON / 不符合 Schema | — | 「模型没有返回可解析的 JSON」+ 重试 + **改用预设模板** |
+| 两次都没有 JSON | — | 「模型两次都没有返回可解析的 JSON」+ 重试 + **改用预设模板** |
 
 任一失败都不会清空上一张成功的设计。
 
-## 5. 系统指令
+## 8. 系统指令
 
 见 `src/ai/prompt.ts` 的 `DESIGN_SYSTEM_PROMPT`。要点：
 
 - 只输出 JSON，不输出解释、Markdown 或代码块；
-- 明确列出四种折叠与五种 motif 的几何含义，并声明不支持曲线/文字/动物；
-- 禁止编造"任意图案一刀可剪"、形式化证明、模型能力或学术来源；
-- 给出一个 one-shot 示例（input → JSON），显著提升合规率。
+- **逐条列出**四种 `order`、六种元素的字段名与数值区间（这是失败率从 75% 降到 0 的关键）；
+- 给出"什么主题配什么参数"的具体配比（团花 / 雪花 / 圆月 / 极简）；
+- 三个 few-shot 示例，每个都是引擎真实渲染过的设计；
+- 禁止编造"任意图案一刀可剪"、形式化证明、六重对称或学术来源。
 
-## 6. 验证
+## 9. 验证
 
 | 层 | 方式 | 结果 |
 |---|---|---|
-| Schema | `src/tests/ai.test.ts`（17 例） | 未知字段/枚举/越界/注入/降级全覆盖 |
-| 真实调用 | `FOLDYSSEY_LIVE_AI=1 npx vitest run src/tests/ai.live.test.ts` | 通过：`glm-5.3-flash`，~3.2s，输出合法 JSON 并渲染 |
-| 浏览器 | `tools/ai_check.py` | 13/13：生成、渲染、限流、失败保留上一张、交接工坊、核心功能不受影响 |
+| Schema / 归一 | `src/tests/ai.test.ts`（29 例） | 同义词、缺字段、多字段、字符串数字、越界、注入、旧格式、结构补足、锯齿展开 |
+| 真实调用 | `FOLDYSSEY_LIVE_AI=1 npx vitest run src/tests/ai.live.test.ts` | 通过：`glm-5.3-flash`，输出合法 JSON 并渲染 |
+| 浏览器 | `tools/ai_check.py` | 14/14：生成、渲染、限流、失败保留上一张、交接工坊、核心功能不受影响 |
+| 图案质量 | `tools/shots/ai-gallery3.png` | 三张样例都含花心 + 花瓣 + 镂空 + 锯齿边 |
 
-## 7. 已知限制
+## 10. 已知限制
 
 1. 模型目录里可选的模型很多，客户端按偏好列表挑一个可用的；若中途全部被禁用会报「模型不可用」。
 2. 未做服务端配额计量（依赖平台侧额度）；客户端限流只能挡住普通用户。
-3. `motifs` 的表达力受几何引擎约束：只有五种直线切割原型，不能生成任意窗花。
-4. 生成结果是数字图案，不是经核验的实体折剪模板。
+3. **几何仍是直线/折线/多边形**：可以有八瓣、锯齿、成圈镂空，但做不出真实窗花那种连绵的曲线花瓣（那需要曲线切割，与"一刀"语义冲突）。
+4. 正方形最多 8 重对称；六角雪花只能用八折近似，文案会被强制改写。
+5. 生成结果是数字图案，不是经核验的实体折剪模板。

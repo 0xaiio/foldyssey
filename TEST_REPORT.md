@@ -135,3 +135,65 @@
 | 浏览器内下载 SVG/PNG 的落盘校验 | CDP 下载较繁琐 | 导出函数已有单元测试；路径与孔洞正确性已断言 |
 | 在线链接验证 | 第二轮发布后已验证；v0.2.0 的 AI 功能需重新发布后再核验 | 记录在 `submission/publish_verification.md` |
 | 运行时 AI 的真实调用 | 已通过 `ai.live.test.ts` 与 `tools/ai_check.py` 验证 | 见上方第三轮 |
+
+## 2026-10-31 · 第五轮（AI 图案质量 + 校验容错 / v0.4.0）
+
+### 1. 现场诊断（先取证，再改代码）
+
+用 12 条中文 prompt 直接打真实模型（`glm-5.3-flash`，temperature 0.8），
+逐条记录原始回复与校验错误：
+
+| 指标 | 结果 |
+|---|---|
+| 失败率 | **9 / 12** |
+| `theme` 枚举不匹配 | 7（`winter_snowflake` / `modern_minimal` / `flower` / `zodiac_rabbit` …） |
+| 漏字段 `motifs.1.size` | 1 |
+| 多字段 `rotation2` | 1 |
+| JSON 解析失败 | 0 |
+| 成功样本的形状分布 | 3/3 全是 `orthogonal2 + line+line+line` |
+
+结论：失败来自**提示词没写枚举 + 校验器只拒绝不修复**，不是模型能力问题；
+图案单调来自**几何表达力被锁在四重镜像 + 直线**。
+
+### 2. 质量对照（改前 / 改后）
+
+| 版本 | 生成结果 |
+|---|---|
+| 改前 | `tools/shots/ai-gallery.png`：八边形 + 菱形孔，三种主题几乎同形 |
+| 改后 | `tools/shots/ai-gallery3.png`：锯齿边（32 齿）+ 八边形花心 + 8 道花瓣缝 + 一圈箭头镂空 |
+| 参数扫描 | `tools/shots/patterns.png`（直线上限）、`cand2.png` / `cand6.png`（元素配比收敛） |
+
+### 3. 执行记录
+
+| 命令 | 结果 |
+|---|---|
+| `npx tsc --noEmit` | 0 error |
+| `npx vitest run` | **72 passed \| 1 skipped**（几何 43 / AI 29） |
+| `npx vite build` | 成功；主包 244.69 kB（gzip 82.87），AI chunk 156.33 kB 懒加载 |
+| `tools/ui_check.py`（1440×980 + 390×844） | **26 / 26 PASS**，`console issues: 0` |
+| `tools/ai_check.py`（真实模型） | **14 / 14 PASS**，`console issues: 0` |
+
+`ai_check` 的真实输出（节选）：
+
+```
+PASS ai: model returned a renderable design  [八瓣迎春]
+PASS ai: geometry summary shown
+     [八折团花（八重镜像 · D4） · 7 刀（花心 1 · 花瓣 1 · 镂空 1 · 锯齿 1） | 保留 77% | 含花瓣 | 3631 ms]
+```
+
+### 4. 本轮修复的缺陷
+
+| 现象 | 根因 | 修复 |
+|---|---|---|
+| 频繁报"参数不符合范围" | `.strict()` + 未在提示词声明枚举 + 无修复路径 | `coerceDesign()` 归一 + 结构补足 + 一次自动重试 |
+| `hole` 后再 `rim`，整张纸变空（3.70 → 0.00） | `unionMP` 全有或全无；一个片区退化清空并集 | 增量合并；`paper = P \ removed` |
+| 折剪的 V 形画在内侧、实际剪在外侧 | `PaperStage` 的臂方向与 `notchTriangle` 相反 | 统一为向外张开 |
+| 浅锯齿变成细针、深锯齿变成长槽 | 缺口三角的底边固定在 1.4 处 | 锯齿改为"边缘菱形孔" |
+
+### 5. 仍未覆盖
+
+| 项 | 原因 |
+|---|---|
+| Safari / 真机 | 只有 Chromium 内核（Edge）+ 390px 视口 |
+| 曲线切割 | 与"一刀 / 折剪"的语义冲突，明确不做 |
+| 服务端配额 | 依赖平台侧额度，客户端限流只能挡普通用户 |

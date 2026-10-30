@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import type { Cut, CutOutcome } from '../geometry/cut';
-import { CUT_OFFSET_LIMIT, NOTCH_REACH, clipRayToRing, normalizeCut } from '../geometry/cut';
+import { CUT_OFFSET_LIMIT, NOTCH_REACH, clipRayToRing, holeOutline, normalizeCut } from '../geometry/cut';
 import { type FoldPreset, patchRenderMatrix } from '../geometry/fold';
 import { type MultiPolygon, multiPolygonBounds, multiPolygonToPath } from '../geometry/polygon';
 import { type Vec2, clamp } from '../geometry/vec';
@@ -138,6 +138,27 @@ export function PaperStage({
         return;
       }
 
+      if (cut.kind === 'hole') {
+        if (mode === 'translate') {
+          const r = Math.hypot(p.x, p.y);
+          const deg = (Math.atan2(p.y, p.x) * 180) / Math.PI;
+          onCutChange({
+            ...cut,
+            radius: clamp(r, 0, 1.05),
+            angle: ((deg % 360) + 360) % 360,
+          });
+        } else {
+          const cx = Math.cos((cut.angle * Math.PI) / 180) * cut.radius;
+          const cy = Math.sin((cut.angle * Math.PI) / 180) * cut.radius;
+          const dx = p.x - cx;
+          const dy = p.y - cy;
+          if (Math.hypot(dx, dy) < 1e-6) return;
+          const deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+          onCutChange({ ...cut, rotation: ((deg % 180) + 180) % 180 });
+        }
+        return;
+      }
+
       if (mode === 'translate') {
         const projected = cut.nx * p.x + cut.ny * p.y;
         onCutChange({ ...cut, offset: clamp(projected, -CUT_OFFSET_LIMIT, CUT_OFFSET_LIMIT) });
@@ -216,8 +237,8 @@ export function PaperStage({
       const half = norm.width / 2;
       const armDir = (sgn: number) => {
         const target = {
-          x: apex.x - u.x * NOTCH_REACH + per.x * half * sgn,
-          y: apex.y - u.y * NOTCH_REACH + per.y * half * sgn,
+          x: apex.x + u.x * NOTCH_REACH + per.x * half * sgn,
+          y: apex.y + u.y * NOTCH_REACH + per.y * half * sgn,
         };
         const len = Math.hypot(target.x - apex.x, target.y - apex.y) || 1;
         const dir = { x: (target.x - apex.x) / len, y: (target.y - apex.y) / len };
@@ -237,6 +258,26 @@ export function PaperStage({
           { p: right, role: 'rotate' as const },
         ],
         r,
+        hit,
+      };
+    }
+
+
+    if (norm.kind === 'hole') {
+      const ring = holeOutline(norm);
+      const segments = ring.map((pt, i) => ({ a: pt, b: ring[(i + 1) % ring.length] }));
+      const centre = {
+        x: Math.cos((norm.angle * Math.PI) / 180) * norm.radius,
+        y: Math.sin((norm.angle * Math.PI) / 180) * norm.radius,
+      };
+      const tip = ring[0] ?? centre;
+      return {
+        segments,
+        handles: [
+          { p: centre, role: 'translate' as const },
+          { p: tip, role: 'rotate' as const },
+        ],
+        r: r * 0.8,
         hit,
       };
     }

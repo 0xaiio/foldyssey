@@ -225,11 +225,30 @@ export function pointInMultiPolygon(pt: Vec2, mp: MultiPolygon): boolean {
  * Boolean ops (Vec2 domain in, Vec2 domain out)
  * ------------------------------------------------------------------ */
 
+/**
+ * Union, applied incrementally.
+ *
+ * `polygon-clipping` throws (and we turn that into an empty result) when any
+ * member is degenerate — a hole ring that touches the outer ring, a sliver with
+ * two coincident vertices, etc. Doing the union in one shot means one bad patch
+ * erases the whole sheet, which is how a hole cut used to blank the paper after
+ * a later rim cut. Incremental union keeps the good accumulation and skips the
+ * member that cannot be merged.
+ */
 export function unionMP(...list: MultiPolygon[]): MultiPolygon {
   const valid = list.filter((m) => m.length > 0);
   if (valid.length === 0) return [];
   if (valid.length === 1) return valid[0];
-  return cleanMultiPolygon(fromClip(clipUnion(...valid.map(toClip))));
+
+  let acc = valid[0];
+  for (let i = 1; i < valid.length; i++) {
+    const next = cleanMultiPolygon(fromClip(clipUnion(toClip(acc), toClip(valid[i]))));
+    // A union of two non-empty sets cannot be empty; if it is, the member is
+    // invalid (not "nothing there"), so keep what we already have.
+    if (next.length === 0) continue;
+    acc = next;
+  }
+  return acc;
 }
 
 export function intersectMP(a: MultiPolygon, b: MultiPolygon): MultiPolygon {

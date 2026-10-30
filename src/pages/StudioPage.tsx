@@ -10,7 +10,9 @@ import {
   cutAngleDeg,
   cutFromAngle,
   describeCut,
-  type StraightCut,
+  notchCut,
+  type Cut,
+  type HoleShape,
 } from '../geometry/cut';
 import { FOLD_PRESETS, type FoldPresetId, getPreset } from '../geometry/fold';
 import { multiPolygonArea } from '../geometry/polygon';
@@ -27,7 +29,7 @@ import {
 
 type StudioState = {
   foldPreset: FoldPresetId;
-  cuts: StraightCut[];
+  cuts: Cut[];
   style: StyleDoc;
 };
 
@@ -59,6 +61,8 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
   const preset = useMemo(() => getPreset(state.foldPreset), [state.foldPreset]);
   const result = useMemo(() => applyCuts(state.foldPreset, state.cuts), [state.foldPreset, state.cuts]);
   const activeCut = state.cuts[Math.min(active, state.cuts.length - 1)];
+  // Inside the 8-fold wedge only 0..45° is meaningful.
+  const angleMax = state.foldPreset === 'radial8' ? 45 : 180;
 
   const area = multiPolygonArea(result.paper);
   const holeCount = result.paper.reduce((n, poly) => n + Math.max(0, poly.length - 1), 0);
@@ -101,7 +105,7 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
 
   const commit = (next: StudioState) => setState(next);
 
-  const updateCut = (index: number, next: StraightCut) => {
+  const updateCut = (index: number, next: Cut) => {
     commit({ ...state, cuts: state.cuts.map((c, i) => (i === index ? next : c)) });
   };
 
@@ -129,11 +133,12 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
     }
     beginEdit();
     const last = state.cuts[state.cuts.length - 1];
-    const next: StraightCut = cutFromAngle(
-      (cutAngleDeg(last) + 45) % 180,
-      Math.min(1.2, last.offset + 0.18),
-      last.removedSide,
-    );
+    // A new cut always starts as a straight cut; the sliders can turn it into
+    // a notch/hole afterwards, so the seed only needs to be reasonable.
+    const seedAngle = (cutAngleDeg(last) + 45) % 180;
+    const seedOffset = last.kind === 'line' ? Math.min(1.2, last.offset + 0.18) : 0.7;
+    const seedSide = last.kind === 'line' ? last.removedSide : 'negative';
+    const next: Cut = cutFromAngle(seedAngle, seedOffset, seedSide);
     commit({ ...state, cuts: [...state.cuts, next] });
     setActive(state.cuts.length);
   };
@@ -232,7 +237,7 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
               />
             </div>
             <p className="note" style={{ marginTop: 8 }}>
-              拖动纸面平移切线，拖动两端圆点旋转。{activeCut ? describeCut(activeCut) : ''}
+              拖动纸面平移切口；拖动圆点旋转或改变大小。{activeCut ? describeCut(activeCut) : ''}
             </p>
           </div>
 
@@ -318,11 +323,11 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
               </button>
             </div>
 
-            {activeCut && (
+            {activeCut && activeCut.kind === 'line' && (
               <>
                 <div className="control">
                   <div className="control__head">
-                    <span className="control__label">角度</span>
+                    <span className="control__label">法线角度</span>
                     <span className="control__value mono">{Math.round(cutAngleDeg(activeCut))}°</span>
                   </div>
                   <input
@@ -359,32 +364,205 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
                     onChange={(e) => updateCut(active, { ...activeCut, offset: Number(e.target.value) })}
                   />
                 </div>
-                <div className="btn-row" style={{ marginTop: 4 }}>
-                  <div className="segmented" role="group" aria-label="剪去哪一侧">
-                    <button
-                      className={`segmented__item${activeCut.removedSide === 'negative' ? ' is-active' : ''}`}
-                      onClick={() => {
-                        beginEdit();
-                        updateCut(active, { ...activeCut, removedSide: 'negative' });
-                      }}
-                    >
-                      负侧
-                    </button>
-                    <button
-                      className={`segmented__item${activeCut.removedSide === 'positive' ? ' is-active' : ''}`}
-                      onClick={() => {
-                        beginEdit();
-                        updateCut(active, { ...activeCut, removedSide: 'positive' });
-                      }}
-                    >
-                      正侧
-                    </button>
-                  </div>
-                  <button className="btn btn--quiet btn--sm" onClick={() => removeCut(active)}>
-                    删除
+                <div className="segmented" role="group" aria-label="剪去哪一侧" style={{ marginTop: 4 }}>
+                  <button
+                    className={`segmented__item${activeCut.removedSide === 'negative' ? ' is-active' : ''}`}
+                    onClick={() => {
+                      beginEdit();
+                      updateCut(active, { ...activeCut, removedSide: 'negative' });
+                    }}
+                  >
+                    负侧
+                  </button>
+                  <button
+                    className={`segmented__item${activeCut.removedSide === 'positive' ? ' is-active' : ''}`}
+                    onClick={() => {
+                      beginEdit();
+                      updateCut(active, { ...activeCut, removedSide: 'positive' });
+                    }}
+                  >
+                    正侧
                   </button>
                 </div>
               </>
+            )}
+
+            {activeCut && activeCut.kind === 'notch' && (
+              <>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">折剪方向</span>
+                    <span className="control__value mono">{Math.round(activeCut.angle)}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={angleMax}
+                    step={0.5}
+                    value={activeCut.angle}
+                    aria-label="折剪方向"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) =>
+                      updateCut(active, notchCut(Number(e.target.value), activeCut.distance, activeCut.width))
+                    }
+                  />
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">顶点距中心</span>
+                    <span className="control__value mono">{activeCut.distance.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={1.2}
+                    step={0.01}
+                    value={activeCut.distance}
+                    aria-label="折剪顶点距中心"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) =>
+                      updateCut(active, notchCut(activeCut.angle, Number(e.target.value), activeCut.width))
+                    }
+                  />
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">张口宽度</span>
+                    <span className="control__value mono">{activeCut.width.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.05}
+                    max={1.2}
+                    step={0.01}
+                    value={activeCut.width}
+                    aria-label="折剪张口宽度"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) =>
+                      updateCut(active, notchCut(activeCut.angle, activeCut.distance, Number(e.target.value)))
+                    }
+                  />
+                </div>
+              </>
+            )}
+
+            {activeCut && activeCut.kind === 'hole' && (
+              <>
+                <div className="segmented" role="group" aria-label="镂空形状" style={{ marginBottom: 8 }}>
+                  {([
+                    ['diamond', '菱形'],
+                    ['circle', '圆形'],
+                    ['leaf', '叶形'],
+                  ] as [HoleShape, string][]).map(([shape, label]) => (
+                    <button
+                      key={shape}
+                      className={`segmented__item${activeCut.shape === shape ? ' is-active' : ''}`}
+                      onClick={() => {
+                        beginEdit();
+                        updateCut(active, { ...activeCut, shape });
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">孔的方位</span>
+                    <span className="control__value mono">{Math.round(activeCut.angle)}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={angleMax}
+                    step={0.5}
+                    value={activeCut.angle}
+                    aria-label="镂空方位"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) => updateCut(active, { ...activeCut, angle: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">距中心</span>
+                    <span className="control__value mono">{activeCut.radius.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1.05}
+                    step={0.01}
+                    value={activeCut.radius}
+                    aria-label="镂空与纸包中心的距离"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) => updateCut(active, { ...activeCut, radius: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">半宽</span>
+                    <span className="control__value mono">{activeCut.size.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.02}
+                    max={0.4}
+                    step={0.005}
+                    value={activeCut.size}
+                    aria-label="镂空半宽"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) => updateCut(active, { ...activeCut, size: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">长宽比</span>
+                    <span className="control__value mono">{activeCut.stretch.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.3}
+                    max={3}
+                    step={0.05}
+                    value={activeCut.stretch}
+                    aria-label="镂空长宽比"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) => updateCut(active, { ...activeCut, stretch: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="control">
+                  <div className="control__head">
+                    <span className="control__label">自身转角</span>
+                    <span className="control__value mono">{Math.round(activeCut.rotation)}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={180}
+                    step={1}
+                    value={activeCut.rotation}
+                    aria-label="镂空自身转角"
+                    onPointerDown={beginEdit}
+                    onKeyDown={beginEdit}
+                    onChange={(e) => updateCut(active, { ...activeCut, rotation: Number(e.target.value) })}
+                  />
+                </div>
+              </>
+            )}
+
+            {activeCut && (
+              <div className="btn-row" style={{ marginTop: 6 }}>
+                <button className="btn btn--quiet btn--sm" onClick={() => removeCut(active)}>
+                  删除这一刀
+                </button>
+              </div>
             )}
           </div>
 
