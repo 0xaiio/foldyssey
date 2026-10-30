@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Foldyssey">
+  <rect width="64" height="64" rx="12" fill="#F8F3E9"/>
+  <path d="M32 6 L56 32 L32 58 L8 32 Z" fill="#B93645"/>
+  <path d="M32 22 L42 32 L32 42 L22 32 Z" fill="#F8F3E9"/>
+  <path d="M32 6 L32 22 M56 32 L42 32 M32 58 L32 42 M8 32 L22 32" stroke="#F8F3E9" stroke-width="1.6" stroke-dasharray="3 3" opacity="0.55"/>
+</svg>

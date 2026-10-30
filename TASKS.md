@@ -1,0 +1,71 @@
+# 任务追踪（TASKS）
+
+状态取值：`已完成` / `部分完成` / `未完成` / `受阻` / `不适用`。
+「已完成」必须有可执行证据；证据列写的是**实际跑过的命令或用例名**，
+不是"应该没问题"。Commit SHA 汇总见 `PROJECT_STATUS.md`。
+
+## 一、几何核心（Milestone 1）
+
+| ID | 任务 / 验收条件 | 优先级 | 状态 | 实现文件 / 思路 | 验证证据 | 遗留 |
+|---|---|---|---|---|---|---|
+| REQ-GEO-001 | 纸张模型 `P=[-1,1]²`、片区等距变换、逆变换 | P0 | 已完成 | `geometry/polygon.ts`（`Mat`/`applyMat`）、`geometry/fold.ts` | `each patch transform is an isometry and its own inverse` | — |
+| REQ-GEO-002 | 四种合法折叠预设 | P0 | 已完成 | `geometry/fold.ts` `FOLD_PRESETS` | `orthogonal double fold with no cut unfolds back to the full square` | 仅四种，斜折未做 |
+| REQ-GEO-003 | 一刀 = 半平面，逐层逆映射 | P0 | 已完成 | `geometry/cut.ts` `applyCuts` + `removedPacketRegion` | `every patch loses its own mirrored copy of the cut` | — |
+| REQ-GEO-004 | 黄金样例：中心菱形 | P0 | 已完成 | 同上，参数 `45°/0.40/negative` | `removes a diamond of area 2d^2…`、`the hole is the set｜x｜+｜y｜< d`、`invariant under both axis reflections` | — |
+| REQ-GEO-005 | 退化输入不崩溃 | P0 | 已完成 | `normalizeCut` 返回 `null`；`clip.ts` try/catch；面积阈值过滤 | `degenerate normals and non-finite values are rejected without crashing` | — |
+| REQ-GEO-006 | IoU + 对称差评分 | P0 | 已完成 | `geometry/score.ts` | `identical regions score IoU = 1…`、`an obviously wrong solution is not accepted` | — |
+| REQ-GEO-007 | 差异可视化 | P1 | 已完成 | `PaperStage` 的 `diffExtra/diffMissing/targetOutline` | 截图 `tools/shots/03b-puzzle-diff.png` | — |
+| REQ-GEO-008 | 不变量 I1–I5 | P0 | 已完成 | — | `paper + removed = the original sheet`、`same input … byte-identical` 等 5 例 | — |
+
+## 二、游戏（Milestone 2）
+
+| ID | 任务 | 优先级 | 状态 | 实现 | 验证 | 遗留 |
+|---|---|---|---|---|---|---|
+| REQ-GAME-001 | 6 个原创关卡，目标由标准解生成 | P1 | 已完成 | `puzzle/levels.ts` `buildLevel()` | `ships six levels`、`every level can be solved by its canonical solution`、`every level rejects its own initial guess` | — |
+| REQ-GAME-002 | 折叠 / 剪 / 展开 / 重试 / 提示 | P0 | 已完成 | `pages/PuzzlePage.tsx` 状态机 | 浏览器验证 `canonical solution clears the level`（100% IoU） | — |
+| REQ-GAME-003 | 三类渐进提示 | P1 | 已完成 | `levels.ts` `hints{observe,operate,solution}` | 手动检查（提示按钮循环 0→3 级） | — |
+| REQ-GAME-004 | 移动端触控与布局 | P0 | 已完成 | `styles/index.css` 断点、`touch-action:none` | `mobile: no horizontal overflow`、`mobile: puzzle stage width fits`（358px） | 真机未测，仅 390px 视口 |
+| REQ-GAME-005 | 进度与最佳成绩 | P2 | 已完成 | `services/storage.ts` `recordAttempt` | 通关后「已通关」chip 与首页计数 | — |
+| REQ-GAME-006 | 评分卡无需滚动即可见 | P0 | 已完成 | `.score-card { order: -1 }` | `puzzle: score card visible without scrolling` | 视觉顺序先于 DOM 顺序（已注释权衡） |
+
+## 三、工坊与作品（Milestone 3）
+
+| ID | 任务 | 优先级 | 状态 | 实现 | 验证 | 遗留 |
+|---|---|---|---|---|---|---|
+| REQ-STUDIO-001 | 双视图（纸包编辑 + 实时预览） | P0 | 已完成 | `pages/StudioPage.tsx` + 两个 `PaperStage` | `studio: two stage canvases` | — |
+| REQ-STUDIO-002 | 切线编辑（拖动/旋转/滑块） | P0 | 已完成 | `PaperStage` 指针处理 + 滑块 | 滑块用例 `slider changes the offset readout`；拖动为人工验证 | 端到端未自动化拖动 |
+| REQ-STUDIO-003 | 撤销 / 重做 / 重置 | P1 | 已完成 | `past/future` 快照栈 + `beginEdit()` | 手动检查 | 拖动与滑块的粒度靠 `beginEdit` 控制 |
+| REQ-STUDIO-004 | SVG / PNG 导出 | P0 | 已完成 | `services/export.ts` | `keeps the diamond hole as a separate sub-path with evenodd fill`、`produces a stable downloadable file name` | 浏览器下载未自动化 |
+| REQ-STUDIO-005 | 保存 / 载入 / 删除 | P0 | 已完成 | `services/storage.ts` | 手动：保存→刷新→作品集→编辑 | 未做配额满的实测 |
+| REQ-STUDIO-006 | 多切口（≤3）+ 配色 | P1 | 已完成 | `StudioPage` 切口标签页、`PALETTES` | 手动检查 | — |
+
+## 四、发布与投稿（Milestone 4）
+
+| ID | 任务 | 优先级 | 状态 | 实现 | 验证 | 遗留 |
+|---|---|---|---|---|---|---|
+| REQ-REL-001 | WorkBuddy 公开发布 | P0 | 见 `submission/publish_verification.md` | 平台「网站应用」发布 | 同文件记录 | 需账号授权 |
+| REQ-REL-002 | 更新发布后线上为最新 | P0 | 见同文件 | 「更新发布」 | 同文件记录 | — |
+| REQ-AI-001 | 运行时 AI 灵感设计师 | P2 | **未完成** | 未创建 `src/ai/` | 页面无入口、无网络请求 | 见 `docs/AI_INTEGRATION.md` |
+| REQ-AI-002 | AI 使用披露 | P1 | 已完成 | About 页 + `submission/ai_usage_disclosure.md` | 文本可查 | — |
+| REQ-DOC-001 | 文档体系 | P0 | 已完成 | `docs/*`、根目录 6 份 | `docs/INDEX.md` 清单与实际文件一致 | — |
+| REQ-DOC-002 | 任务追踪与里程碑记录 | P0 | 已完成 | 本文件 + `PROJECT_STATUS.md` | 提交表含真实 SHA | — |
+| REQ-BRAND-001 | 品牌统一 | P0 | 已完成 | `index.html`、`public/favicon.svg`、各页文案 | 首页 title 断言 | — |
+| REQ-QA-001 | 单元测试 | P0 | 已完成 | `src/tests/geometry.test.ts` | `29 passed` | — |
+| REQ-QA-002 | 浏览器端验证 | P1 | 已完成 | `tools/ui_check.py` | `19/19 checks passed`，`console issues: 0` | 仅 Chromium 内核 |
+
+## 五、明确不做（不适用）
+
+| 项 | 原因 |
+|---|---|
+| 任意斜折 / 曲线切口 | 需要新的合法分区与可平折性验证，超出首版范围 |
+| 任意目标图案自动求解 | 需要一般平折算法，与"四种预设"的产品定位冲突 |
+| 纸张物理仿真 | ADR-0001 |
+| 实体可打印模板核验 | 未做 A4 比例尺与折序核验，因此不写 `verified` |
+| 账号 / 云同步 | ADR-0005 |
+
+## 六、下一步（若继续）
+
+1. 接入运行时 AI（`docs/AI_INTEGRATION.md` 的方案），补齐 AI 端到端测试。
+2. 增加斜折预设（45° 对角折），需要新的 `forward/inverse` 与无穿透说明。
+3. 工坊增加"参数化孔洞"（圆/叶片），并明确标注为数字图案。
+4. 真机（iOS Safari / Android Chrome）触控回归。
