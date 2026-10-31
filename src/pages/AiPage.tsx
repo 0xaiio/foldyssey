@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { generateDesign, remainingQuota, type AiFailure, type AiSuccess } from '../ai/client';
 import { AI_DISCLOSURE } from '../ai/cloudConfig';
 import { saveAiDraft } from '../ai/draft';
 import { describeDesign } from '../ai/schema';
+import { AI_TEMPLATES, type AiTemplate } from '../ai/templates';
 import { navigate } from '../app/router';
 import { PaperStage } from '../components/PaperStage';
 import { useToast } from '../components/Toast';
@@ -11,13 +12,6 @@ import { applyCuts } from '../geometry/cut';
 import { getPreset } from '../geometry/fold';
 import { formatPercent } from '../geometry/score';
 import { downloadSvg } from '../services/export';
-
-const EXAMPLES = [
-  '喜庆的八瓣红色窗花，适合春节挂窗',
-  '蓝白雪花，细密一点，方便孩子剪',
-  '中秋主题，圆月和花瓣，温润',
-  '现代几何，极简，留白',
-];
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
@@ -28,6 +22,23 @@ export function AiPage() {
   const [failure, setFailure] = useState<AiFailure | null>(null);
   const [quota, setQuota] = useState(() => remainingQuota());
   const { show: toast, node: toastNode } = useToast();
+  const areaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Derived, not stored: as soon as the user edits the brief, no chip is
+  // "current" any more — no extra state to keep in sync.
+  const activeLabel = AI_TEMPLATES.find((t) => t.prompt === prompt)?.label ?? null;
+
+  const applyTemplate = (t: AiTemplate) => {
+    setPrompt(t.prompt);
+    // Put the caret at the end and focus, so the next keystroke edits the brief
+    // instead of the user having to click into the box first.
+    requestAnimationFrame(() => {
+      const el = areaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(t.prompt.length, t.prompt.length);
+    });
+  };
 
   const preview = useMemo(() => {
     if (!result) return null;
@@ -84,6 +95,7 @@ export function AiPage() {
           </div>
 
           <textarea
+            ref={areaRef}
             className="prompt-input"
             value={prompt}
             maxLength={120}
@@ -102,13 +114,27 @@ export function AiPage() {
             <span className="muted">Ctrl / ⌘ + Enter 生成</span>
           </div>
 
-          <div className="example-chips" role="group" aria-label="示例主题">
-            {EXAMPLES.map((ex) => (
-              <button key={ex} className="example-chip" onClick={() => setPrompt(ex)}>
-                {ex}
-              </button>
-            ))}
+          <div className="example-chips" role="group" aria-label="示例模板">
+            {AI_TEMPLATES.map((t) => {
+              const active = activeLabel === t.label;
+              return (
+                <button
+                  key={t.label}
+                  type="button"
+                  className={`example-chip${active ? ' is-active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() => applyTemplate(t)}
+                >
+                  <span className="example-chip__label">{t.label}</span>
+                  <span className="example-chip__hint">{t.hint}</span>
+                </button>
+              );
+            })}
           </div>
+          <p className="note example-note">
+            点模板会把一段<strong>可直接修改</strong>的完整描述填进输入框（含折数、元素、配色、用途），
+            你可以在它的基础上改字、加词。
+          </p>
 
           <div className="btn-row" style={{ marginTop: 14 }}>
             <button

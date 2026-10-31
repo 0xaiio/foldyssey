@@ -14,6 +14,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import { AI_TEMPLATES } from '../ai/templates';
+import { AiPage } from '../pages/AiPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { PuzzlePage } from '../pages/PuzzlePage';
 import { StudioPage } from '../pages/StudioPage';
@@ -116,6 +118,39 @@ describe('ui: the fold-and-cut card states the theorem correctly', () => {
     expect(html).toContain('折剪定理');
     expect(html).toContain('直线段');
     expect(html).toContain('曲线剪');
+  });
+});
+
+describe('ui: the AI template shelf', () => {
+  it('ships six briefs that fit the input, each with a concrete label', () => {
+    expect(AI_TEMPLATES).toHaveLength(6);
+    for (const t of AI_TEMPLATES) {
+      // The textarea and generateDesign both cap at 120; a brief that overflows
+      // would be silently truncated the moment it is filled in.
+      expect(t.prompt.length, t.label).toBeLessThanOrEqual(120);
+      expect(t.prompt.length, t.label).toBeGreaterThan(30);
+      expect(t.label.length, t.label).toBeLessThanOrEqual(7);
+      expect(t.hint).toContain('折');
+      // A brief has to name a fold count, an element and a palette to be
+      // "professional" in the sense the model can act on.
+      expect(t.prompt).toMatch(/八折|四折/);
+      expect(t.prompt).toMatch(/孔|花瓣|锯齿|花心/);
+      expect(t.prompt).toMatch(/纸|底|配色/);
+    }
+    expect(new Set(AI_TEMPLATES.map((t) => t.label)).size).toBe(6);
+    expect(new Set(AI_TEMPLATES.map((t) => t.prompt)).size).toBe(6);
+  });
+
+  it('renders one two-line chip per template, and drops the abstract one', () => {
+    const html = renderToStaticMarkup(<AiPage />);
+    expect((html.match(/class="example-chip[ "]/g) ?? []).length).toBe(6);
+    for (const t of AI_TEMPLATES) {
+      expect(html, t.label).toContain(`example-chip__label">${t.label}<`);
+      expect(html, t.label).toContain(`example-chip__hint">${t.hint}<`);
+    }
+    // The complaint that started this: three adjectives, no picture.
+    expect(html).not.toContain('极简，留白');
+    expect(html).toContain('可直接修改');
   });
 });
 
