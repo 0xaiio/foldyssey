@@ -15,6 +15,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { AI_TEMPLATES } from '../ai/templates';
+import { AboutPage } from '../pages/AboutPage';
 import { AiPage } from '../pages/AiPage';
 import { ExplorePage } from '../pages/ExplorePage';
 import { PuzzlePage } from '../pages/PuzzlePage';
@@ -151,6 +152,49 @@ describe('ui: the AI template shelf', () => {
     // The complaint that started this: three adjectives, no picture.
     expect(html).not.toContain('极简，留白');
     expect(html).toContain('可直接修改');
+  });
+});
+
+describe('ui: the about page matches the shipped build', () => {
+  const html = renderToStaticMarkup(<AboutPage />);
+
+  it('states the current capabilities, not the v0.1 ones', () => {
+    expect(html).toContain('五种固定预设');
+    expect(html).toContain('四种原语');
+    expect(html).toContain('16 关');
+    expect(html).toContain('1–6 刀');
+    expect(html).toContain('v0.7.1');
+    // The old text claimed curves were unsupported and the studio capped at
+    // three straight cuts.
+    expect(html).not.toContain('曲线切口、任意目标图案');
+  });
+
+  it('drops the parenthetical the user asked to remove', () => {
+    expect(html).not.toContain('写清楚，比夸大');
+    expect(html).toContain('能力边界');
+  });
+
+  it('renders the formula without relying on rare maths glyphs', () => {
+    // ⋃ (U+22C3) exists in 2 of 300 installed fonts and ᵢ (U+1D62) is missing
+    // from several; both used to be typed literally. Sub/sup are markup now,
+    // and the union is a vector glyph.
+    expect(html).not.toContain('⋃');
+    expect(html).not.toContain('ᵢ');
+    expect(html).toContain('class="cup"');
+    expect(html).toContain('aria-label="并集"');
+    expect(html).toContain('role="math"');
+    expect((html.match(/<sub>/g) ?? []).length).toBeGreaterThanOrEqual(6);
+    expect((html.match(/<sup>/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    // ∩ stays as a character: 123 installed fonts have it, including the stack.
+    expect(html).toContain('∩');
+  });
+
+  it('cites the two references behind the formula', () => {
+    expect(html).toContain('参考文献');
+    expect(html).toContain('10.1017/CBO9780511735172');
+    expect(html).toContain('10.1007/978-3-540-46515-7_9');
+    expect(html).toContain('Geometric Folding Algorithms');
+    expect(html).toContain('Folding and Cutting Paper');
   });
 });
 
