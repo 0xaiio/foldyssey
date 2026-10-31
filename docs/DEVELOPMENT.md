@@ -43,7 +43,7 @@
 src/geometry/vec.ts       向量与 clamp/smoothstep 的基础件
 src/geometry/clip.ts      polygon-clipping 的适配层（唯一依赖第三方几何的地方）
 src/geometry/polygon.ts   类型、面积、布尔运算、路径生成
-src/geometry/fold.ts      四种预设、片区、折叠插值矩阵
+src/geometry/fold.ts      五种预设、片区、折叠插值矩阵
 src/geometry/cut.ts       半平面、逐层逆映射、CutOutcome
 src/geometry/score.ts     IoU / 对称差 / 判定
 src/puzzle/levels.ts      6 个关卡（目标 = 标准解的正向构造）

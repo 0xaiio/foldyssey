@@ -92,13 +92,15 @@ export function AboutPage() {
         <div className="card card--pad">
           <h3 className="h3">研究灵感与免责</h3>
           <p className="note" style={{ marginTop: 8 }}>
-            本项目受 Erik Demaine、Martin Demaine 等人关于 computational origami、fold-and-cut、
-            folding puzzles 的研究启发。Fold-and-Cut 定理指出：任意直线段图案都存在某个"一般平折"
-            使一刀可剪出。
+            本项目受 Erik D. Demaine、Martin L. Demaine 与 Anna Lubiw 关于 computational origami、
+            fold-and-cut、folding puzzles 的研究启发。Fold-and-Cut 定理断言：任意一族直线段，
+            都存在一种平折，使一刀直线切割得到它们。
           </p>
           <p className="note" style={{ marginTop: 8 }}>
-            但本作品只实现四种固定折叠，所以可剪出的目标只是这四种折叠下的像。
-            <strong>非 MIT 官方产品，与 Demaine 无合作或背书关系</strong>，未使用其谜题图片、教材图或源码。
+            但定理只保证「存在某个平折」；本作品只提供五种固定折法，所以可剪出的目标只是这五种
+            折法下的像，曲线剪更超出定理的直线段假设。
+            <strong>非 MIT 官方产品，与上述作者无合作或背书关系</strong>，未使用其谜题图片、
+            教材图或源码。原文、译文与出处见「纸艺中的数学」第 5 张卡片。
           </p>
         </div>
 

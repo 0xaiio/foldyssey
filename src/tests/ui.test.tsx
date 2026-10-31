@@ -14,6 +14,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import { ExplorePage } from '../pages/ExplorePage';
 import { PuzzlePage } from '../pages/PuzzlePage';
 import { StudioPage } from '../pages/StudioPage';
 import { LEVELS } from '../puzzle/levels';
@@ -84,6 +85,37 @@ describe('ui: puzzle page renders for every level', () => {
       expect(html, level.id).toContain(`level-item__title">${level.title}`);
       expect(html, level.id).toContain(`· ${SKILL_META[level.skill].label}`);
     }
+  });
+});
+
+describe('ui: the fold-and-cut card states the theorem correctly', () => {
+  it('quotes the English original, translates it, and names all three authors', () => {
+    const html = renderToStaticMarkup(<ExplorePage />);
+    // The heading no longer claims to be about "适用条件".
+    expect(html).toContain('5 · Fold-and-Cut 定理');
+    expect(html).not.toContain('适用条件');
+    // Verbatim Theorem 1 (Demaine, Demaine & Lubiw) and its citation.
+    expect(html).toContain('Given any collection of straight edges, there exists a flat folding');
+    expect(html).toContain('10.1007/978-3-540-46515-7_9');
+    // The Chinese translation must be present, with the term 平折.
+    expect(html).toContain('都存在一种平折方式');
+    expect(html).toContain('剪口图案');
+    // Three authors by full name — never "brothers", never a bare surname.
+    expect(html).toContain('Erik D. Demaine');
+    expect(html).toContain('Martin L. Demaine');
+    expect(html).toContain('Anna Lubiw');
+    expect(html).not.toContain('兄弟');
+  });
+
+  it('describes the capability boundary as it actually is today', () => {
+    const html = renderToStaticMarkup(<ExplorePage />);
+    // Five presets, not four, and the curve cut is outside the theorem's
+    // straight-edge hypothesis.
+    expect(html).toContain('五种固定折叠预设');
+    expect(html).not.toContain('四种固定');
+    expect(html).toContain('折剪定理');
+    expect(html).toContain('直线段');
+    expect(html).toContain('曲线剪');
   });
 });
 

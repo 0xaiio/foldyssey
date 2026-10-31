@@ -183,19 +183,41 @@ export function ExplorePage() {
           <PreimageDemo />
         </div>
 
-        <div className="explore-card">
-          <h3>5 · Fold-and-Cut 定理的适用条件</h3>
-          <p>
-            Demaine 兄弟的 fold-and-cut 定理说：任意由直线段组成的图案，都存在一个"一般平折"，
-            使一刀直线切割可以剪出它。
-          </p>
-          <p>
-            但"存在某个折叠"不等于"两次简单对折就能剪出任意图案"。本作品只实现四种固定折叠预设，
-            因此目标库也只是这四种折叠的像——这是能力的边界，不是定理的反例。
-          </p>
+        <div className="explore-card explore-card--wide">
+          <h3>5 · Fold-and-Cut 定理</h3>
+          <div className="theorem">
+            <div>
+              <p className="theorem__lead">
+                这一定理由 Erik D. Demaine、Martin L. Demaine 与 Anna Lubiw 证明，中文文献里常见的译名是「折剪定理」，通俗说法是「折纸一刀切定理」。
+              </p>
+              <blockquote className="theorem__quote" lang="en">
+                “Given any collection of straight edges, there exists a flat folding and a line in that folding such that cutting along it results in the desired pattern of cuts.”
+              </blockquote>
+              <p className="theorem__cite">
+                出处：Theorem 1，E. D. Demaine, M. L. Demaine, A. Lubiw, “Folding and Cutting Paper”, JCDCG'98, Lecture Notes in Computer Science（LNCS）1763, Springer, 2000, pp. 104–117，DOI 10.1007/978-3-540-46515-7_9；会议摘要版 “Folding and One Straight Cut Suffice”, SODA 1999, pp. 891–892。
+              </p>
+              <p className="theorem__trans">
+                <b>中文译文（本项目译）：</b>给定平面上任意一族直线段，都存在一种平折方式，以及该折叠状态下的一条直线，使得沿这条直线剪一刀后，恰好得到这组直线段所构成的剪口图案。
+              </p>
+              <p className="note">
+                术语：「平折」（flat folding）指纸被折到完全展平、各面重合的状态，不是「对折」；原文的「一族直线段」允许相交、不连通、彼此嵌套，也就是任意平面直线图（plane graph）。定理还可以等价地说成：能把图形折到同一条直线上——图形的所有顶点与边都落在这一条线上，而纸上其他部分都不落在上面。
+              </p>
+            </div>
+
+            <div className="theorem__side">
+              <p>
+                <b>定理没有说的事：</b>它只断言「存在某个平折」，既不是「随便折两下就能剪出任意图案」，也不是「任意折法都行」。
+              </p>
+              <p>
+                本作品只提供五种固定折叠预设（不折、竖折、横折、正交双折、八折团花），所以目标库只是这五种预设下的像——这是能力的边界，不是定理的反例。
+              </p>
+              <p className="note">
+                还有一处也要说清：定理的假设是<b>直线段</b>。本作的「曲线剪」是正弦弧的折线逼近，超出该假设，这部分不由折剪定理背书。
+              </p>
+            </div>
+          </div>
           <p className="note">
-            研究灵感来自 Erik Demaine 与合作者的计算折纸工作。本项目与 MIT、Demaine 无隶属或背书关系，
-            未使用其谜题图片、教材图或源码。
+            研究灵感来自 Erik D. Demaine、Martin L. Demaine 与 Anna Lubiw 的计算折纸工作。本项目与 MIT 及上述作者无隶属或背书关系，未使用其谜题图片、教材图或源码。
           </p>
         </div>
       </div>
