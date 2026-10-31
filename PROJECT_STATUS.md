@@ -8,7 +8,7 @@
 |---|---|
 | 版本 | v0.7.3（全面代码审查：修 11 个问题、补 199 个用例、核心覆盖率 96.7%） |
 | 分支 | `main` |
-| 最新提交 | 见 `git log -1`（本次审查提交）· 功能提交 `3959b7e` |
+| 最新提交 | `15f745e`（全面代码审查）· 功能提交 `3959b7e` |
 | 构建 | `npm run build` 通过（主包 286.8 kB / gzip 102.0 kB；`AiPage` 独立 chunk 157.3 kB 懒加载；CSS 40.0 kB / gzip 9.0 kB） |
 | 测试 | `npm run test` → **199 passed \| 1 skipped**（10 个文件）；`npx vitest run --coverage` → 行 **96.73%** / 分支 **87.89%** / 函数 **95.06%**（核心 17 个模块）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（线上为 v0.7.2 内容；v0.7.3 待发布） |
@@ -87,6 +87,7 @@
 | M4 发布与材料 | （本次提交，见 `git log -1`） | docs(release): publish verification and contest material | main | 见 `git log` | 线上 19/19 PASS |
 | M8 曲线剪 | `3959b7e49606e2745a713dc25d95113fc1c17545` | feat(cut): curved scissor strokes and the four-rung scissor ladder | main | ✅ | `vitest` 104 passed；`build` 通过；发布 `verified: true` |
 | M8.1 部署修复 | `9275067` | fix(deploy): bind the injected PORT and allow the proxy host | main | ✅ | `PORT=4192 npm start` → 200；重新发布成功 |
+| M9 全面审查 | `15f745e` | fix(geometry): stop the cut engine from silently leaving a layer uncut | main | ✅ | `vitest` 199 passed；覆盖率 96.73/87.89/95.06；`build` 通过 |
 
 > 说明：本次开发在单个工作会话内完成，M0–M3 的代码是一体设计的一体实现，
 > 三次提交是**真实检查点**（脚手架 → 几何可测 → 界面可用），
