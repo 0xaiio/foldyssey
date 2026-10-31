@@ -8,7 +8,7 @@
 |---|---|
 | 版本 | v0.7.0（曲线剪 + 剪刀能力四级 + 5 个新关卡） |
 | 分支 | `main` |
-| 最新提交 | 见下方「提交记录」末行 |
+| 最新提交 | `66cb249`（docs）· 功能提交 `3959b7e` |
 | 构建 | `npm run build` 通过（主包 282 kB / gzip 99 kB；`AiPage` 独立 chunk 156 kB 懒加载） |
 | 测试 | `npm run test` → **104 passed \| 1 skipped**（含 7 个结构渲染用例）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器；`node tools/ai_smoke.mjs` 通过 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.0，更新发布后核验） |
@@ -80,6 +80,8 @@
 | M1 几何与关卡 | `d8a88f25ec5ca1112ee3078cc3ca45a4649ebaea` | feat(geometry): verified fold-cut-unfold engine with golden tests and six levels | main | ✅ | `vitest run` 29 passed |
 | M2/M3 应用与工坊 | `b124462aecb2293956f4e3f8ecc099a40f004eb1` | feat(app): playable puzzle, papercut studio, gallery and math lab | main | ✅ | `tsc` 0 error；`build` 通过；23/23 浏览器检查 |
 | M4 发布与材料 | （本次提交，见 `git log -1`） | docs(release): publish verification and contest material | main | 见 `git log` | 线上 19/19 PASS |
+| M8 曲线剪 | `3959b7e49606e2745a713dc25d95113fc1c17545` | feat(cut): curved scissor strokes and the four-rung scissor ladder | main | ✅ | `vitest` 104 passed；`build` 通过；发布 `verified: true` |
+| M8.1 部署修复 | `9275067` | fix(deploy): bind the injected PORT and allow the proxy host | main | ✅ | `PORT=4192 npm start` → 200；重新发布成功 |
 
 > 说明：本次开发在单个工作会话内完成，M0–M3 的代码是一体设计的一体实现，
 > 三次提交是**真实检查点**（脚手架 → 几何可测 → 界面可用），
@@ -91,5 +93,3 @@
 2. 录制 60 秒演示视频（脚本已备）。
 3. 填写身份/联系方式/授权条款并提交。
 4. 若需长期保存作品，使用工坊的 SVG/PNG 导出（本地存储会随清缓存丢失）。
-| M8 曲线剪 | `3959b7e49606e2745a713dc25d95113fc1c17545` | feat(cut): curved scissor strokes and the four-rung scissor ladder | main | ✅ | `vitest` 104 passed；`build` 通过；发布 `verified: true` |
-| M8.1 部署修复 | `9275067` | fix(deploy): bind the injected PORT and allow the proxy host | main | ✅ | `PORT=4192 npm start` → 200；重新发布成功 |
