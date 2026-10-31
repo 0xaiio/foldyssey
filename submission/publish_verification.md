@@ -71,3 +71,36 @@ python tools/ui_check.py
 
 无。若访问返回 5xx 或白屏，先确认是否刚发布完成（等待数秒重试），
 再检查 `dist/` 是否为最新构建。
+
+---
+
+## v0.7.0 更新发布（2026-10-31）
+
+| 项 | 值 |
+|---|---|
+| 时间 | 2026-10-31 01:4x（北京时间） |
+| 结果 | `verified: true`，`deployedAs: http-service` |
+| 链接 | **不变**：https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z |
+| sandboxId | `16a3e4ba68274884aa9bd7f3ca2e67aa` |
+| 提交 | `9275067`（部署修复）/ `3959b7e`（曲线剪本体） |
+
+### 第一次尝试失败，原因与修复
+
+第一次更新返回 `SITES_START_FAILED`：`service did not become reachable on port 3000 within 60s`。
+进程表里能看到 `vite --host 127.0.0.1 --host 0.0.0.0`——部署器按 `dev` 脚本启动，
+而 Vite 忽略了注入的 `PORT`，仍然监听 5173；同时它的 host 检查也会拒绝反向代理域名。
+
+修复（提交 `9275067`）：
+
+- `vite.config.ts`：`server` / `preview` 读 `process.env.PORT`（未注入时回落 5173 / 4173），
+  绑定 `0.0.0.0`，注入 `PORT` 时 `strictPort`，并设 `allowedHosts: true`；
+- `package.json`：补显式 `"start": "vite"`，给部署器一个正确的启动入口。
+
+本地验证：`PORT=4192 npm start` → `/puzzle/scallop` 返回 `200`（Vite 报 "ready" 并监听 4192）。
+重新发布后返回 `verified: true`。
+
+> **注意**：失败的那次已经把旧链接背后的 sandbox 换掉，中间存在几分钟的打不开窗口；
+> 现在已恢复。本次发布**没有**做浏览器级复验——本机 Edge/Chromium 启动即退出
+> （见 `TEST_REPORT.md` 第八轮），只有部署器的端口探测与本地 `PORT` 验证。
+> 因此线上版本建议由人打开看一眼：首页图案库应为 **16 张**、阶段筛选 **6 个**，
+> 关卡列表末四关为 波边 / 旋风 / 葫芦 / 花窗。
