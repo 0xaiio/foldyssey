@@ -47,11 +47,12 @@ CutOutcome = {
 
 ```
 用户拖动切线
-  └─ setCut(StraightCut)                       （pages/PuzzlePage）
-       └─ useMemo applyCuts(preset, [cut])     （geometry/cut）
-            ├─ removedPacketRegion()          半平面 ∩ 纸包
-            ├─ fᵢ⁻¹(D) 逐层求差集              polygon/clip
-            └─ union(regionᵢ) → paper
+  └─ setCut(Cut)                               （pages/PuzzlePage）
+       └─ useMemo applyCuts(preset, cuts)      （geometry/cut）
+            ├─ removedPacketRegion()          半平面 / V 形 / 超椭圆 / 高度场 ∩ 纸包
+            ├─ surviving = packet \ D          纸包内只做这一次差集
+            ├─ regionᵢ = fᵢ⁻¹(surviving)       每层只做等距映射
+            └─ paper = SQUARE \ removed₁ \ … \ removedₙ
        └─ <PaperStage outcome={...} foldedness={...} />
             ├─ patchRenderMatrix()  折叠插值
             ├─ multiPolygonToPath() 路径生成

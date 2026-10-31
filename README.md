@@ -9,7 +9,7 @@ Foldyssey 是一座可以玩的数字折剪纸实验室：选一种折叠、拖�
 - **在线体验**：见 [submission/publish_verification.md](submission/publish_verification.md)（发布后填写）
 - **技术栈**：React 18 + TypeScript + Vite + SVG + `polygon-clipping` + `zod` +
   `@tencent-ai/workbuddy-cloud-sdk`（运行时模型）+ Vitest
-- **定位**：WorkBuddy「1024 造物挑战」参赛作品 · v0.6.0
+- **定位**：WorkBuddy「1024 造物挑战」参赛作品 · v0.7.3
 
 ---
 
@@ -27,7 +27,7 @@ S = ⋃ᵢ ( Pᵢ \ fᵢ⁻¹( D ∩ fᵢ(Pᵢ) ) )
 
 ---
 
-## 已实现（v0.7.0）
+## 已实现（v0.7.3）
 
 | 能力 | 状态 |
 |---|---|
@@ -58,7 +58,8 @@ AI 只挑选参数，不生成图片；越界的枚举与数值会被映射或�
 ```bash
 npm install          # Node >= 18
 npm run dev          # 本地开发 http://127.0.0.1:5173
-npm run test         # 几何 / 关卡 / 判定 / 诊断 / AI 校验 / 结构渲染（104 passed）
+npm run test         # 几何 / 关卡 / 判定 / 诊断 / AI / 导出 / 结构渲染（199 passed）
+npx vitest run --coverage   # 核心 17 个模块：行 96.7% / 分支 87.9% / 函数 95.1%
 npm run typecheck    # tsc --noEmit
 npm run build        # 生产构建到 dist/
 npm run preview      # 预览生产包
@@ -76,19 +77,24 @@ FOLDYSSEY_LIVE_AI=1 npx vitest run src/tests/ai.live.test.ts
 python tools/ui_check.py    # 需先按 docs/TESTING.md 启动 Edge 调试端口
 ```
 
+> 2026-10-31 起本机浏览器启动即退出，`ui_check.py` 停在 v0.6.0 的 45/45；
+> 之后由 28 个 `react-dom/server` 结构渲染用例补位（渲染成功、路径无 `NaN`、
+> 关键文案与引擎一致）。覆盖率的统计口径见 `docs/TESTING.md` §1.6。
+
 ---
 
 ## 目录
 
 ```
 src/geometry/   纸张模型、折叠、切割、布尔运算、评分（纯函数，无 React）
-src/puzzle/     关卡数据（目标由标准解正向生成）
-src/studio/     工坊参数（当前以页面内常量形式组织）
-src/components/ SVG 纸张渲染器、缩略图、Toast
-src/pages/      首页 / 关卡 / 工坊 / 作品 / 数学 / 关于
+src/puzzle/     关卡数据、诊断、剪刀能力分级（目标由标准解正向生成）
+src/ai/         运行时模型客户端、schema 校验/修复、提示词、模板
+src/components/ SVG 画布、图案库、分级条、Toast
+src/pages/      首页 / 关卡 / 工坊 / 作品 / 数学 / 关于 / AI 灵感
 src/services/   本地存储、SVG/PNG 导出
-src/tests/      几何、关卡、导出的单元测试
-docs/           规格、架构、几何、测试、发布、安全、ADR
+src/app/        哈希路由与外壳
+src/tests/      单元 + 结构渲染 + 审查回归（199 个用例）
+docs/           规格、接口、几何、测试、审查、发布、安全、ADR
 submission/     参赛材料
 tools/          浏览器端验证脚本与截图
 ```

@@ -46,9 +46,10 @@ type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 function getStore(): StorageLike | null {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return null;
-    const probe = '__foldyssey_probe__';
-    window.localStorage.setItem(probe, '1');
-    window.localStorage.removeItem(probe);
+    // Do NOT probe with a write. A full quota makes the probe throw, which used
+    // to return null here — turning "storage is full" into "this browser has no
+    // storage" and, worse, hiding every already-saved artwork from the gallery.
+    // Reads and writes each handle their own failure below.
     return window.localStorage;
   } catch {
     return null;

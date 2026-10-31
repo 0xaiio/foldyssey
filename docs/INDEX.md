@@ -8,11 +8,11 @@ Foldyssey（一刀万象）的工程文档。**文档与代码同步演进**：�
 | 读者 | 建议顺序 |
 |---|---|
 | 第一次接触项目的人 | `README.md` → `docs/REQUIREMENTS.md` → `docs/GEOMETRY_SPEC.md` |
-| 要改几何算法的人 | `docs/GEOMETRY_SPEC.md` → `docs/SCISSOR_CURVES.md` → `docs/TESTING.md` → `src/geometry/*.ts` → `src/tests/geometry.test.ts` |
+| 要改几何算法的人 | `docs/API.md` → `docs/GEOMETRY_SPEC.md` → `docs/SCISSOR_CURVES.md` → `docs/TESTING.md` → `src/geometry/*.ts` → `src/tests/geometry.test.ts` |
 | 要改关卡或分级的人 | `docs/SCISSOR_CURVES.md` → `src/puzzle/skill.ts` → `src/puzzle/levels.ts` → `docs/PATTERNS.md` |
 | 要改界面/动画的人 | `docs/ARCHITECTURE.md` → `src/components/PaperStage.tsx` → `docs/TESTING.md` |
 | 要发布上线的人 | `docs/DEPLOYMENT.md` → `submission/publish_verification.md` |
-| 接手维护的人 | `PROJECT_STATUS.md` → `TASKS.md` → `docs/adr/` → `CHANGELOG.md` |
+| 接手维护的人 | `PROJECT_STATUS.md` → `docs/CODE_REVIEW.md` → `TASKS.md` → `docs/adr/` → `CHANGELOG.md` |
 
 ## 文档清单
 
@@ -26,6 +26,8 @@ Foldyssey（一刀万象）的工程文档。**文档与代码同步演进**：�
 | `TEST_REPORT.md` | 实际测试执行记录与证据 | 每次测试运行 |
 | `docs/REQUIREMENTS.md` | 用户故事、需求编号、优先级、验收标准 | 需求变化时 |
 | `docs/ASSUMPTIONS.md` | 歧义解释、假设、依据、风险 | 出现歧义时 |
+| `docs/API.md` | 17 个核心模块的导出签名、前置/后置条件、可依赖不变量 | 接口或语义变化时 |
+| `docs/CODE_REVIEW.md` | 最近一次全面审查：结论、问题清单、覆盖率口径、文档同步说明 | 每次审查结束 |
 | `docs/ARCHITECTURE.md` | 分层、数据流、边界 | 架构变更时 |
 | `docs/GEOMETRY_SPEC.md` | 数学模型、坐标约定、切割语义、不变量 | 几何算法变更时 |
 | `docs/DEVELOPMENT.md` | 环境、脚本、编码约定、调试入口 | 开发流程变化时 |

@@ -46,7 +46,7 @@ src/geometry/polygon.ts   类型、面积、布尔运算、路径生成
 src/geometry/fold.ts      五种预设、片区、折叠插值矩阵
 src/geometry/cut.ts       半平面、逐层逆映射、CutOutcome
 src/geometry/score.ts     IoU / 对称差 / 判定
-src/puzzle/levels.ts      6 个关卡（目标 = 标准解的正向构造）
+src/puzzle/levels.ts      16 个关卡（目标 = 标准解的正向构造）
 src/components/PaperStage  SVG 渲染器（相机、拖拽、图层）
 src/services/export.ts    SVG / PNG 导出
 src/services/storage.ts   localStorage 读写与 schema 校验

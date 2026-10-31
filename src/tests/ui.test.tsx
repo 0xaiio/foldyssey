@@ -163,7 +163,7 @@ describe('ui: the about page matches the shipped build', () => {
     expect(html).toContain('四种原语');
     expect(html).toContain('16 关');
     expect(html).toContain('1–6 刀');
-    expect(html).toContain('v0.7.1');
+    expect(html).toContain('v0.7.3');
     // The old text claimed curves were unsupported and the studio capped at
     // three straight cuts.
     expect(html).not.toContain('曲线切口、任意目标图案');

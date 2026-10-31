@@ -1,7 +1,7 @@
 {
   "name": "foldyssey",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.7.3",
   "type": "module",
   "description": "Foldyssey / 一刀万象 — a playable computational paper-art lab.",
   "scripts": {
@@ -27,6 +27,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^2.1.9",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",

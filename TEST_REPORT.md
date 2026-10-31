@@ -375,3 +375,47 @@ grand-rosette 75.2 → 76.3 → 77.7 → 89.9 → 91.1 → 93.1    达标
 | `tools/ui_check.py` 重跑 | 本机无法启动 Chromium/Edge（启动即退出）；脚本已保留，需在有浏览器的环境执行 |
 | 曲线关的真机触控 | 同上；`touch-action: pan-y` + 手柄 `none` 的组合只做了代码层审查 |
 | 曲线在 SVG 导出中的视觉 | 导出路径来自同一几何，已由单测覆盖，但未做像素比对 |
+
+## 2026-10-31 · 第九轮（全面代码审查 + 覆盖率 / v0.7.3）
+
+环境：Windows 11 / Node v22.22.2 / 无可用浏览器（Edge 与 Chromium 启动即退出，见第八轮）。
+本轮只改代码与文档，**没有**新增页面；发布前仍需人工目视一次。
+
+| 命令 | 结果 | 备注 |
+|---|---|---|
+| `npx tsc --noEmit` | 通过（0 error） | — |
+| `npx vitest run` | **199 passed / 1 skipped** | 10 个文件；耗时 37 s，其中 34 s 是 `assist.test.ts` 的全量搜索 |
+| `npx vitest run --coverage` | **行 96.73% / 分支 87.89% / 函数 95.06%** | 核心 17 个模块、3 184 条语句；逐文件最低 91.4%（`schema.ts`） |
+| `npm run build` | 成功 | JS 286.8 kB / gzip 102.0 kB；CSS 40.0 kB / gzip 9.0 kB；`AiPage` chunk 157.3 kB / gzip 49.8 kB |
+| `python tools/paperprobe.py` | 未重跑 | 16 关目标区域的面积在修复后逐一核对过（见下），形状未变 |
+
+### 1. 本轮修掉的缺陷
+
+| 编号 | 现象 | 量化证据 | 测试 |
+|---|---|---|---|
+| R-01 | 逐片区布尔运算在切边与片区边重合时把某层当成没剪 | 曲线相反法向：纸面 2.2108 vs 2.6581；团花 `paper+removed` = 3.9314 | `the per-patch pieces add up to the sheet they came from`、`every layer of a folded cut loses the same amount of paper` |
+| R-02 | `differenceMP` 回退分支嵌套错一层，回退不减任何东西 | 注入失败后 `A\B` 面积 2（应为 1） | `difference.fallback.test.ts` 4 条 |
+| R-03 | "B 覆盖 A" 只看面积，远处大 B 清零整张纸 | 面积 100、包围盒不相交的 B → `[]` | `a huge but far-away subtrahend does not erase the sheet` |
+| R-04 | 曲线手柄翻转法向时无条件取反振幅，S 形被镜像 | bends=2 时 IoU 0.37（应 1.0） | `curveUnderFlippedNormal preserves the sheet…` |
+| R-05 | 配额满 → 存储探测写失败 → 作品集读不出且报"不支持存储" | 错误文案错误、画廊空 | `reports a blocked or full storage instead of pretending to save` |
+| R-06 | AI 兜底错误把原始错误（含路径）拼进给用户的一句话 | `生成失败：Error: secret at /home/user/...` | `never leaks a raw stack into the headline` |
+
+### 2. 修复后的关键实测
+
+| 项 | 数值 |
+|---|---|
+| 16 关 `paper + removed` | 全部 4.00000（1e-6 内） |
+| 16 关每层 `region + removed` | 全部等于该片区面积 |
+| 同一刀在 8 层的移除面积 | 8 份完全相等（1e-6 内） |
+| 两刀交换顺序 | IoU > 0.9999（3 组：线+折剪、曲线+线、两直线） |
+| 契约「一格滑块不判失败」 | 16 关全过；最差 六出 97.15% / 花窗 97.17%（线 96%） |
+| 法向翻转保形 | bends 1/2/3 × 振幅 ±0.12/±0.16/±0.28 × 两侧，IoU = 1（1e-6） |
+
+### 3. 未覆盖（本轮）
+
+| 项 | 原因 |
+|---|---|
+| `tools/ui_check.py` 重跑 | 本机无浏览器；该脚本仍是 v0.6.0 的 45/45 |
+| 真实指针拖拽 | 需要浏览器事件；新加的"角度对齐滑块网格"只做了类型与结构层验证 |
+| 覆盖率对 `pages/components` | 刻意不纳入门槛（JSX 行覆盖率会失真），由 28 个结构渲染用例补位 |
+| 移动端 390 px 版式 | 同上 |

@@ -61,7 +61,7 @@ export function AboutPage() {
             不是"看起来像"。
           </p>
           <p className="note" style={{ marginTop: 10 }}>
-            截至 v0.7.1：5 种折法（含不折）、4 种切口原语（直线 / 折剪 / 镂空 / 曲线）、
+            截至 v0.7.3：5 种折法（含不折）、4 种切口原语（直线 / 折剪 / 镂空 / 曲线）、
             16 个关卡分 5 个阶段，并按「剪刀能力」排成四级——一刀、两刀、拐弯、曲线。
           </p>
         </div>
@@ -221,7 +221,7 @@ export function AboutPage() {
       </div>
 
       <p className="note" style={{ marginTop: 22 }}>
-        Foldyssey v0.7.1 · 2026 年 10 月 · WorkBuddy「1024 造物挑战」参赛作品
+        Foldyssey v0.7.3 · 2026 年 10 月 · WorkBuddy「1024 造物挑战」参赛作品
       </p>
     </>
   );

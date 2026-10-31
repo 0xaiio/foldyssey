@@ -7,7 +7,7 @@
 | E. D. Demaine, M. L. Demaine, A. Lubiw, “Folding and Cutting Paper”, JCDCG'98, LNCS 1763, Springer, 2000, pp. 104–117，DOI [10.1007/978-3-540-46515-7_9](https://doi.org/10.1007/978-3-540-46515-7_9)（会议摘要版 “Folding and One Straight Cut Suffice”, SODA 1999, pp. 891–892） | 定理原文与出处；中文译文由本项目自行翻译并校对术语 | **仅引用文字表述**（Theorem 1 一句），未复制图片、图样、习题或代码 |
 | Erik Demaine, *The Fold-and-Cut Problem* — https://erikdemaine.org/foldcut/ | 理解定理的历史脉络与演示方式 | 仅阅读，未复制任何图片、谜题或代码 |
 | Erik Demaine, *Simple Fold & Cut Font* — https://erikdemaine.org/fonts/simplefoldcut/ | 了解折叠序列的表达方式 | 仅阅读，未使用其字体或图形 |
-| Erik & Martin Demaine, *SoCG 2026 folding puzzle* — https://erikdemaine.org/puzzles/SoCG2026/ | 关卡设计思路参考 | 仅阅读，未复制其谜题 |
+| E. D. Demaine & M. L. Demaine, *SoCG 2026 folding puzzle* — https://erikdemaine.org/puzzles/SoCG2026/ | 关卡设计思路参考 | 仅阅读，未复制其谜题 |
 | Origami Simulator — https://origamisimulator.org/ | 对照更复杂的三维模拟，确认首版不需要 | 未使用其代码 |
 
 **免责**：本项目与 MIT、Erik D. Demaine、Martin L. Demaine、Anna Lubiw 无隶属、合作或背书关系。

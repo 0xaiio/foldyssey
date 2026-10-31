@@ -39,5 +39,31 @@ export default defineConfig({
     // on its temp cache when several workers start at once (EPERM), which
     // silently drops test files from the run. The suite is fast enough (<1s).
     fileParallelism: false,
+    coverage: {
+      provider: 'v8',
+      // No HTML report: this environment's safe-delete shim refuses to clear a
+      // directory with >50 files, and a fresh HTML report has ~60. The JSON
+      // summary carries every number the docs quote.
+      reporter: ['text', 'text-summary', 'json-summary'],
+      reportsDirectory: 'coverage',
+      // "Core" is the engine that decides what the app draws and how it is
+      // scored — every file that can turn a cut document into paper, judge it,
+      // or hand it to the model. React pages/components are covered by
+      // structural render tests but counted separately: line coverage of JSX is
+      // dominated by markup branches that carry no behaviour.
+      include: [
+        'src/geometry/**/*.ts',
+        'src/puzzle/**/*.ts',
+        'src/ai/schema.ts',
+        'src/ai/prompt.ts',
+        'src/ai/draft.ts',
+        'src/ai/templates.ts',
+        'src/ai/client.ts',
+        'src/ai/cloudConfig.ts',
+        'src/services/export.ts',
+        'src/services/storage.ts',
+      ],
+      exclude: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/tests/**'],
+    },
   },
 });

@@ -219,27 +219,54 @@ S = ⋃ᵢ ( Pᵢ \ fᵢ⁻¹( D ∩ fᵢ(Pᵢ) ) )
 | I4 | 相同输入 → 相同输出（逐字节） | `same input and same seed give byte-identical geometry` |
 | I5 | 变换是等距且自逆 | `each patch transform is an isometry and its own inverse` |
 
-### 5.1 实现方式：用「原纸 − 已剪」而不是「并各片区」
+### 5.1 实现方式：一次「纸包内相减」，再逐层撤纸
 
-`applyCuts()` 的权威结果按 `S = P \ ⋃ᵢ fᵢ⁻¹(D)` 计算，而不是把各片区的剩余区域并起来。
-两者作为点集相等，但后者有一个致命的鲁棒性问题：**一个片区退化，整张纸会变成空**。
+`applyCuts()` 的权威结果按
 
-真实故障（2026-10-30 修复）：`hole` 在纸中央挖出小孔后，再叠一刀 `rim`，
-某个片区的剩余区域出现"孔环与外环相切"的退化多边形，`polygon-clipping` 抛异常，
-`unionMP` 的 `try/catch` 把整个并集当成空集返回——纸直接消失。
-`hole + rim` 与 `rim + hole` 因此得到不同结果（3.70 vs 0.00），有回归测试锁定。
+```
+S = P \ ⨄ᵢ fᵢ⁻¹(D)          （⨄ 表示不相交并；D 是纸包内被剪掉的区域）
+```
 
-修法两条：
+计算，而不是把各片区的剩余区域并起来。两条路线作为点集相等，但布尔运算的鲁棒性差很多。
 
-1. `paper = differenceMP(fullPaper, removed)`；`removed` 全是简单多边形（无孔），不会退化。
-2. `unionMP` 改为**增量合并**：某个成员合并失败时保留已有累积，而不是整体清空。
+**实际故障（2026-10-31 审查修复）**：原实现逐片区做
+`region_i = domain_i \ fᵢ⁻¹(D)`、`removed_i = fᵢ⁻¹(D) ∩ domain_i`。
+当切口的边缘与纸包 / 片区边界**精确重合**时（曲线贴边、八折的轴线切口、
+以及"同一条切口写成相反法向"的情形），`polygon-clipping` 对其中两个片区
+返回空的交集 / 未变的差集，于是那两层被当成"没剪"。实测：
+同一条曲线写成相反法向（S 形关），纸面 2.2108 vs 2.6581；
+团花的 `paper + removed` 只有 3.9314（应为 4）。
+这类错误不会抛异常，只会**静默少剪一层**。
 
-补充不变量：
+修法（现在的管线）：
+
+1. **在纸包坐标里只减一次**：`surviving = packet \ D`。纸包是单个多边形，
+   不存在"切口边缘与片区边界重合"的问题。
+2. 每个片区只做等距映射：`region_i = fᵢ⁻¹(surviving)`、`removed_i = fᵢ⁻¹(D)`；
+   不再对每个片区跑布尔运算。
+3. **整纸按层相减**：`S` 从整张纸开始，逐层 `S ← S \ removed_i`。
+   八份 `removed_i` 互不相交，逐次相减的每一步都是独立的；实测在
+   23°/0.34 处，先并集再相减会丢掉一整层（0.3352 vs 0.3831），逐层相减则精确。
+4. `removed` 用**拼接**而不是并集：八份互不相交，拼接在集合意义上就是答案，
+   `fill-rule="evenodd"` 的渲染结果也相同。
+
+配套的通用修复：
+
+- `differenceMP` 的逐成员回退分支原来把 `ClipMulti` 套了一层再传给库
+  （`[toClip([poly]) as never]`），库直接拒绝，回退实际上"什么都没减"。
+  现在传 `toClip([poly])`。
+- "B 覆盖 A" 的快速判断原来只看面积；一个面积更大但远离 A 的 B 会被误判为
+  覆盖，`A \ B` 直接返回空。现在同时要求 **B 的包围盒包含 A 的包围盒**。
+
+补充不变量（全部有测试）：
 
 | 编号 | 不变量 | 测试 |
 |---|---|---|
-| I6 | 切口顺序不影响结果（可交换） | `a hole plus a rim cut never blanks the sheet (union regression)` |
+| I6 | 切口顺序不影响结果（可交换） | `the order of two cuts does not change the sheet` |
 | I7 | 镂空数量随折数放大（8 折 → 一圈 8 个） | `8-fold turns one cut-out into a ring of holes` |
+| I8 | 各片区的 `region + removed` 等于该片区面积，且总和等于整纸 | `the per-patch pieces add up to the sheet they came from` |
+| I9 | 同一刀在每一层剪掉的面积相同 | `every layer of a folded cut loses the same amount of paper` |
+| I10 | 同一条切口写成相反法向，纸形不变 | `curveUnderFlippedNormal preserves the sheet…` |
 
 ---
 

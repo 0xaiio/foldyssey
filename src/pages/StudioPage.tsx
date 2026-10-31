@@ -146,9 +146,14 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
     }
     beginEdit();
     const last = state.cuts[state.cuts.length - 1];
-    // A new cut always starts as a straight cut; the sliders can turn it into
-    // a notch/hole afterwards, so the seed only needs to be reasonable.
-    const seedAngle = (cutAngleDeg(last) + 45) % 180;
+    // A new cut always starts as a straight cut; the 刀型 switch turns it into
+    // a curve/notch/hole afterwards, so the seed only needs to be reasonable.
+    // On the 8-fold preset the wedge is 45° wide, so the offset must stay inside
+    // it — otherwise the new cut lands outside its own slider's range.
+    const seedAngle =
+      state.foldPreset === 'radial8'
+        ? (cutAngleDeg(last) + 22.5) % 45
+        : (cutAngleDeg(last) + 45) % 180;
     const seedOffset = last.kind === 'line' ? Math.min(1.2, last.offset + 0.18) : 0.7;
     const seedSide = last.kind === 'line' ? last.removedSide : 'negative';
     const next: Cut = cutFromAngle(seedAngle, seedOffset, seedSide);
@@ -373,7 +378,7 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
                   <input
                     type="range"
                     min={0}
-                    max={179}
+                    max={Math.min(angleMax, 179)}
                     step={1}
                     value={Math.round(cutAngleDeg(activeCut))}
                     aria-label="切口角度"
@@ -437,7 +442,7 @@ export function StudioPage({ artworkId }: { artworkId?: string }) {
                   <input
                     type="range"
                     min={0}
-                    max={179}
+                    max={Math.min(angleMax, 179)}
                     step={1}
                     value={Math.round(activeCut.angle)}
                     aria-label="曲线法线角度"

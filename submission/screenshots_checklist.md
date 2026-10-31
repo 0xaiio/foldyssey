@@ -49,7 +49,7 @@ EDGE_ATTACH_PORT=9231 python tools/ui_check.py
 | 10 | `screenshots/10-ai-gallery.png` | 三个 AI 样例 + 四个主题预设的真实渲染对照（锯齿边 / 花心 / 花瓣 / 镂空） | 证明图案已具备剪纸语汇 |
 | 11 | `screenshots/11-pattern-tuning.png` | 元素配比扫描（浅齿 vs 深齿、宽齿 vs 窄齿） | 证明参数是实测收敛的，不是拍脑袋 |
 | 12 | `screenshots/12-puzzle-diff.png` | 展开后的差异覆盖（青=多剪、金=少剪、虚线=目标） | 证明判定是几何集比对 |
-| 13 | `screenshots/13-pattern-library.png` | 图案库：11 张卡片 + 常驻详情面板（折叠 / 切割 / 展开档案） | 展示选择与预览体验 |
+| 13 | `screenshots/13-pattern-library.png` | 图案库：16 张卡片 + 常驻详情面板（折叠 / 切割 / 展开档案） | 展示选择与预览体验 |
 | 14 | `screenshots/14-pattern-library-mobile.png` | 图案库 390px：2 列卡片 + 下方详情 | 移动端自适应 |
 
 这两张由临时脚本渲染（`src/tests/_vgallery.test.ts` / `_cand.test.ts`，用完已删），

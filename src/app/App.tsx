@@ -7,7 +7,7 @@ import { HomePage } from '../pages/HomePage';
 import { PuzzlePage } from '../pages/PuzzlePage';
 import { StudioPage } from '../pages/StudioPage';
 import { Boundary } from '../components/Boundary';
-import { navigate, routeKey, useRoute } from './router';
+import { routeKey, useRoute } from './router';
 
 // The AI page carries the cloud SDK; keep it out of the first paint and out of
 // the critical path. If it fails to load, the rest of the app is unaffected.
@@ -66,22 +66,24 @@ export function App() {
     <>
       <header className="topbar">
         <div className="topbar__inner">
-          <button className="brand" onClick={() => navigate('/')} aria-label="回到首页">
+          <a className="brand" href="#/" aria-label="回到首页">
             <span className="brand__dot" aria-hidden="true" />
             <span className="brand__mark">Foldyssey</span>
             <span className="brand__cn">一刀万象</span>
-          </button>
+          </a>
           <nav className="nav" aria-label="主导航">
             {NAV.map((item) => (
-              <button
+              <a
                 key={item.key}
                 className={`nav__link${route.name === item.key ? ' is-active' : ''}`}
                 data-secondary={item.secondary ? 'true' : undefined}
-                onClick={() => navigate(item.path)}
+                // A real link: middle-click / open-in-new-tab / copy address all
+                // work. The hash router listens to `hashchange`, so no onClick.
+                href={`#${item.path}`}
                 aria-current={route.name === item.key ? 'page' : undefined}
               >
                 {item.label}
-              </button>
+              </a>
             ))}
           </nav>
         </div>

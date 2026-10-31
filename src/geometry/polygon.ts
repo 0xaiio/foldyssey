@@ -273,13 +273,28 @@ export function differenceMP(a: MultiPolygon, b: MultiPolygon): MultiPolygon {
   if (whole.length > 0) return whole;
 
   // Empty result: either B really covers A, or a degenerate member broke it.
+  // Area alone is not enough to claim coverage — a huge B far away from A has a
+  // large area and covers nothing — so require B's bounding box to contain A's
+  // before taking the shortcut. (In the app A is always the sheet and B a
+  // region clipped to the packet, but the helper is used directly in tests.)
   const aArea = multiPolygonArea(a);
   const bArea = multiPolygonArea(b);
-  if (aArea > 1e-12 && bArea >= aArea * 0.98) return [];
+  const aBox = multiPolygonBounds(a);
+  const bBox = multiPolygonBounds(b);
+  const bboxCovers =
+    bBox.minX <= aBox.minX + 1e-9 &&
+    bBox.minY <= aBox.minY + 1e-9 &&
+    bBox.maxX >= aBox.maxX - 1e-9 &&
+    bBox.maxY >= aBox.maxY - 1e-9;
+  if (aArea > 1e-12 && bboxCovers && bArea >= aArea * 0.98) return [];
 
   let acc = a;
   for (const poly of b) {
-    const next = cleanMultiPolygon(fromClip(clipDifference(toClip(acc), [toClip([poly]) as never])));
+    // `toClip` takes a MultiPolygon, so a single polygon must be wrapped once
+    // — `[toClip([poly])]` would be a ClipMulti nested inside a ClipMulti and
+    // the boolean engine would reject it, silently turning the fallback into
+    // "subtract nothing".
+    const next = cleanMultiPolygon(fromClip(clipDifference(toClip(acc), toClip([poly]))));
     if (next.length === 0) continue;
     acc = next;
   }

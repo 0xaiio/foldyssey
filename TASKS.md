@@ -26,10 +26,10 @@
 | REQ-GAME-003 | 三类渐进提示 | P1 | 已完成 | `levels.ts` `hints{observe,operate,solution}` | 手动检查（提示按钮循环 0→3 级） | — |
 | REQ-GAME-004 | 移动端触控与布局 | P0 | 已完成 | `styles/index.css` 断点、`touch-action:none` | `mobile: no horizontal overflow`、`mobile: puzzle stage width fits`（358px） | 真机未测，仅 390px 视口 |
 | REQ-GAME-005 | 进度与最佳成绩 | P2 | 已完成 | `services/storage.ts` `recordAttempt` | 通关后「已通关」chip 与首页计数 | — |
-| REQ-GAME-006 | 分级判定与容差（exact/pass/near/miss，92/94/96%） | P0 | 已完成 | `geometry/score.ts`、`puzzle/levels.ts` `STAGE_THRESHOLDS` | `one slider step never fails any level`（6 关 × 全参数 × ±1 格）；`stages get stricter` | 达标线按阶段，见 `docs/UX_REDESIGN.md` §4 |
+| REQ-GAME-006 | 分级判定与容差（exact/pass/near/miss，92/94/96%） | P0 | 已完成 | `geometry/score.ts`、`puzzle/levels.ts` `STAGE_THRESHOLDS` | `one slider step never fails any level`（16 关 × 全参数 × ±1 格）；`stages get stricter` | 达标线按阶段，见 `docs/UX_REDESIGN.md` §4 |
 | REQ-GAME-007 | 「差在哪？」单参数诊断 + 6 次一键微调 | P0 | 已完成 | `puzzle/assist.ts`、`pages/PuzzlePage.tsx` `.diag` | `assist.test.ts` 5 例：找得到、照做变好、文案含滑块名、6 次收敛、步进不越界 | 只搜单参数（2D 组合不搜） |
 | REQ-GAME-008 | 实时展开对照（预览 + 目标轮廓 + 差异区） | P0 | 已完成 | `pages/PuzzlePage.tsx`「展开预览」卡、`PaperStage` | `puzzle: live preview card exists`、`live IoU readout exists`；实测 3.4–3.8 ms/次 | 主画布不叠（坐标系不同） |
-| REQ-GAME-009 | 5 个典藏图案：折叠 / 切割 / 展开档案 | P0 | 已完成 | `puzzle/levels.ts` `patternDoc`、`docs/PATTERNS.md` | 11 关全部标准解 `exact`；`one slider step never fails` 覆盖镂空与齿边 | Demaine 研究仅作灵感引用，无素材复用 |
+| REQ-GAME-009 | 5 个典藏图案：折叠 / 切割 / 展开档案 | P0 | 已完成 | `puzzle/levels.ts` `patternDoc`、`docs/PATTERNS.md` | 16 关全部标准解 `exact`；`one slider step never fails` 覆盖镂空、齿边与曲线 | Demaine 研究仅作灵感引用，无素材复用 |
 | REQ-UI-003 | 图案库：展示 / 选择 / 预览 + 响应式 | P0 | 已完成 | `components/PatternLibrary.tsx`、`styles/index.css` | `eleven pattern cards`、`selecting a card updates the detail`、`stage filter narrows the grid` | 移动端详情在网格下方，点击自动滚入 |
 | REQ-UI-004 | 切口角色标签与档案折叠 | P1 | 已完成 | `PuzzlePage` `cutLabels`、`.archive` | `tabs are named by role`、`archive is collapsed by default` | — |
 | REQ-UI-002 | 操作说明条（四步）与文案一致性 | P0 | 已完成 | `pages/PuzzlePage.tsx` `.howto`；`cutLabel`/`cutSummary` 单一来源 | `puzzle: how-to strip is on screen`、`how-to names both cut tabs and sliders`、`diagnosis names a slider` | — |
@@ -82,7 +82,24 @@
 | — | 创作台刀型切换（四种刀型互转） | P1 | 已完成 | `geometry/cut.ts` `changeCutKind`、`pages/StudioPage.tsx` | `always produces a valid cut, and keeps the direction`（12 组）、`ui: studio exposes the blade switch` | — |
 | — | 浏览器级回归 | P1 | 受阻 | — | 停在 v0.6.0 的 45/45 | 本机 Edge/Chromium 启动即退出，需换环境重跑 |
 
-## 六、明确不做（不适用）
+## 六、全面代码审查（v0.7.3）
+
+| ID | 任务 / 验收条件 | 优先级 | 状态 | 实现文件 / 思路 | 验证证据 | 遗留 |
+|---|---|---|---|---|---|---|
+| R-01 | 展开管线：消除"切口边缘与片区边界重合 → 某层不剪" | P0 | 已完成 | `geometry/cut.ts` `applyCuts`：纸包内一次相减 + 逐层等距映射 + 整纸逐层相减 + `removed` 拼接 | `the per-patch pieces add up to the sheet they came from`、`every layer of a folded cut loses the same amount of paper`、`paper + removed = 4`（16 关） | 曲线完全贴边仍依赖容差（A-02） |
+| R-02 | `differenceMP` 回退分支修复 | P0 | 已完成 | `geometry/polygon.ts`：`toClip([poly])` | `difference.fallback.test.ts` 4 条 | — |
+| R-03 | 「B 覆盖 A」加包围盒判据 | P1 | 已完成 | `polygon.ts`：`multiPolygonBounds` 包含检查 | `a huge but far-away subtrahend does not erase the sheet` | 仍是启发式（A-01） |
+| R-04 | 曲线法向翻转保持形状（奇偶 `bends`） | P1 | 已完成 | `geometry/cut.ts` `curveUnderFlippedNormal`；`PaperStage` 使用 | `curveUnderFlippedNormal preserves the sheet…`（bends 1/2/3 × 振幅 × 两侧） | — |
+| R-05 | 配额满不再清空作品集 | P1 | 已完成 | `services/storage.ts` 去掉写入探测 | `reports a blocked or full storage instead of pretending to save` | — |
+| R-06 | AI 错误 headline 不泄漏内部文本 | P1 | 已完成 | `ai/client.ts` `mapError` | `never leaks a raw stack into the headline` | — |
+| R-07 | 创作台角度范围与新切口落点 | P2 | 已完成 | `pages/StudioPage.tsx`：`min(angleMax,179)`；八折内 +22.5° | 结构渲染 | 真机未回归 |
+| R-08 | 拖拽角度对齐滑块网格 | P2 | 已完成 | `components/PaperStage.tsx` | 类型 + 结构渲染 | 真机未回归 |
+| R-09~11 | 图案库标题、关卡文案、版本号 | P3 | 已完成 | `PatternLibrary` / `levels.ts` / `README` / `About` / `package.json` | 结构渲染断言「16 个图案」与 `v0.7.3` | — |
+| — | 覆盖率门槛 | P0 | 已完成 | `vite.config.ts` `coverage.include`（17 个模块） | 行 96.73% / 分支 87.89% / 函数 95.06% | UI 层不入门槛 |
+| — | 新增 87 个用例 | P0 | 已完成 | `src/tests/{core.review,difference.fallback,ai.client,services,pages.smoke}` | 199 passed / 1 skipped | — |
+| — | 接口文档与审查报告 | P1 | 已完成 | `docs/API.md`、`docs/CODE_REVIEW.md` | 文档索引已更新 | — |
+
+## 七、明确不做（不适用）
 
 | 项 | 原因 |
 |---|---|
@@ -92,7 +109,7 @@
 | 实体可打印模板核验 | 未做 A4 比例尺与折序核验，因此不写 `verified` |
 | 账号 / 云同步 | ADR-0005 |
 
-## 七、下一步（若继续）
+## 八、下一步（若继续）
 
 1. 接入运行时 AI（`docs/AI_INTEGRATION.md` 的方案），补齐 AI 端到端测试。
 2. 增加斜折预设（45° 对角折），需要新的 `forward/inverse` 与无穿透说明。

@@ -56,6 +56,7 @@ import {
   intersectMP,
   multiPolygonArea,
   pointInRing,
+  SQUARE,
   ringArea,
   unionMP,
 } from './polygon';
@@ -242,6 +243,28 @@ export function clampBends(value: number): CurveBends {
   if (n <= 1) return 1;
   if (n >= 3) return 3;
   return n as CurveBends;
+}
+
+/**
+ * The same stroke, written with the opposite normal.
+ *
+ * All three descriptors flip: the normal, the signed offset, and which side is
+ * removed. The bulge flips sign too — but only for an **odd** number of half
+ * waves. With an even count the sampled graph is symmetric under t -> -t, so
+ * negating the amplitude would mirror the bulge instead of preserving it
+ * (measured on the S-shaped level: IoU 0.37 instead of 1.0).
+ *
+ * Used by the canvas rotation handle: it derives a normal from the pointer and
+ * has to keep the slider's angle inside [0, 180).
+ */
+export function curveUnderFlippedNormal(cut: CurveCut): CurveCut {
+  return {
+    ...cut,
+    angle: ((cut.angle + 180) % 360 + 360) % 360,
+    offset: -cut.offset,
+    amplitude: cut.bends % 2 === 1 ? -cut.amplitude : cut.amplitude,
+    removedSide: cut.removedSide === 'positive' ? 'negative' : 'positive',
+  };
 }
 
 /**
@@ -676,31 +699,10 @@ export function transformMP(mp: MultiPolygon, mat: Mat): MultiPolygon {
   return mp.map((p) => p.map((ring) => ring.map((pt) => applyMat(mat, pt))));
 }
 
-/**
- * The whole sheet, derived from the patch domains. Memoised per preset because
- * it only depends on the fold, and unioning 8 sectors on every drag would be
- * wasteful.
- */
-const _paperCache = new Map<string, MultiPolygon>();
-function paperOf(preset: FoldPreset): MultiPolygon {
-  const hit = _paperCache.get(preset.id);
-  if (hit) return hit;
-  const paper = unionMP(...preset.patches.map((p) => poly(p.domain) as MultiPolygon));
-  if (_paperCache.size > 16) _paperCache.clear();
-  _paperCache.set(preset.id, paper);
-  return paper;
-}
-
 /** Apply a sequence of cuts to a folded preset and unfold the result. */
 export function applyCuts(presetId: string, cuts: Cut[]): CutOutcome {
   const preset = getPreset(presetId as FoldPreset['id']);
   const warnings: string[] = [];
-
-  let state = preset.patches.map((patch) => ({
-    patch,
-    region: poly(patch.domain),
-    removed: [] as MultiPolygon,
-  }));
 
   let removedPacket: MultiPolygon = [];
   const packetArea = multiPolygonArea(poly(preset.packet));
@@ -721,24 +723,42 @@ export function applyCuts(presetId: string, cuts: Cut[]): CutOutcome {
       warnings.push('这一刀会把整叠纸全部剪掉。');
     }
     removedPacket = unionMP(removedPacket, removedP);
-
-    state = state.map((entry) => {
-      const holeInPaper = transformMP(removedP, entry.patch.inverse);
-      const region = differenceMP(entry.region, holeInPaper);
-      const removed = unionMP(entry.removed, intersectMP(holeInPaper, poly(entry.patch.domain)));
-      return { ...entry, region, removed };
-    });
   }
 
-  // The authoritative sheet is `P \ removed`, not `union(patch regions)`.
+  // Everything that survives, computed ONCE in packet coordinates.
   //
-  // The two are equal as point sets, but the difference form is far more
-  // robust: `removed` is a union of simple slivers/triangles (no holes), while
-  // a patch region that has had a hole cut into it can degenerate when a later
-  // cut grazes that hole. It also makes `paper ⊆ P` true by construction,
-  // which is one of the geometry invariants we test.
-  const removed = unionMP(...state.map((s) => s.removed));
-  const paper = differenceMP(paperOf(preset), removed);
+  // Subtracting per patch used to fail silently: a curve whose edge lies
+  // exactly on the packet boundary (or a transformed image of it that lands on
+  // a patch edge) makes `polygon-clipping` return an empty intersection, and
+  // the patch was then reported as untouched — the same cut, written with a
+  // flipped normal, produced a different sheet. One subtraction in the packet
+  // frame has no shared-edge degeneracy with the patch domains, and the
+  // isometries then carry the result to every layer exactly.
+  const survivingPacket = differenceMP(poly(preset.packet), removedPacket);
+
+  const state = preset.patches.map((patch) => ({
+    patch,
+    region: transformMP(survivingPacket, patch.inverse),
+    removed: transformMP(removedPacket, patch.inverse),
+  }));
+
+  // The authoritative sheet is `P` with every layer's pre-image removed.
+  //
+  // Subtract layer by layer instead of unioning the pre-images first. The eight
+  // copies share edges (they tile P), and `polygon-clipping` can lose a whole
+  // copy when two of them touch exactly — measured: at 23°/0.34 on the eight-
+  // fold preset the union of the pre-images came out 12 % small, while eight
+  // sequential differences gave the exact area. Each difference is independent,
+  // so one fragile merge cannot move paper into or out of another layer.
+  let paper = poly(SQUARE);
+  for (const entry of state) paper = differenceMP(paper, entry.removed);
+  // Concatenate rather than union: the eight pre-images are disjoint (each
+  // lies inside its own patch, and the patches tile P), so a union adds no
+  // information — but `unionMP` can drop a member when two copies share an
+  // edge exactly, which made `paper + removed` differ from 4 by one layer on
+  // the 团花 level. Concatenation is exact by construction and renders the same
+  // with `fill-rule="evenodd"`.
+  const removed = state.flatMap((s) => s.removed);
   const paperArea = multiPolygonArea(paper);
 
   return {

@@ -56,7 +56,7 @@ export function PatternLibrary() {
       <div className="section__head">
         <div>
           <div className="kicker">Pattern Library</div>
-          <h2 className="h2">十一个图案，四段递进</h2>
+          <h2 className="h2">{LEVELS.length} 个图案，五段递进</h2>
         </div>
         <p className="muted">
           已通关 {done} / {LEVELS.length} · 点卡片先看档案，再决定动手

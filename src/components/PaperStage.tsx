@@ -4,8 +4,10 @@ import type { Cut, CutOutcome } from '../geometry/cut';
 import {
   CURVE_AMPLITUDE_LIMIT,
   CUT_OFFSET_LIMIT,
+  cutFromAngle,
   NOTCH_REACH,
   clipRayToRing,
+  curveUnderFlippedNormal,
   holeOutline,
   normalizeCut,
   visibleStroke,
@@ -165,7 +167,10 @@ export function PaperStage({
           const dy = p.y - pivot.y;
           if (Math.hypot(dx, dy) < 1e-6) return;
           const deg = (Math.atan2(dy, dx) * 180) / Math.PI;
-          onCutChange({ ...cut, angle: ((deg % 180) + 180) % 180 });
+          // Snap to the slider's half-degree grid: a drag should not leave the
+          // cut on 22.37° while the control reads 22.5°.
+          const snapped = Math.round((((deg % 180) + 180) % 180) * 2) / 2;
+          onCutChange({ ...cut, angle: snapped });
         }
         return;
       }
@@ -177,7 +182,7 @@ export function PaperStage({
           onCutChange({
             ...cut,
             radius: clamp(r, 0, 1.05),
-            angle: ((deg % 360) + 360) % 360,
+            angle: Math.round((((deg % 360) + 360) % 360) * 2) / 2,
           });
         } else {
           const cx = Math.cos((cut.angle * Math.PI) / 180) * cut.radius;
@@ -186,7 +191,7 @@ export function PaperStage({
           const dy = p.y - cy;
           if (Math.hypot(dx, dy) < 1e-6) return;
           const deg = (Math.atan2(dy, dx) * 180) / Math.PI;
-          onCutChange({ ...cut, rotation: ((deg % 180) + 180) % 180 });
+          onCutChange({ ...cut, rotation: Math.round((((deg % 180) + 180) % 180)) });
         }
         return;
       }
@@ -215,21 +220,11 @@ export function PaperStage({
         const ny = Math.sin(phi);
         const distance = cut.offset - (vx * pivot.x + vy * pivot.y);
         const offset = nx * pivot.x + ny * pivot.y + distance;
-        const next = { ...cut, angle: 0, offset };
         const a = Math.atan2(ny, nx);
-        if (a < 0) {
-          // Flipping the normal keeps the stroke in place only if the offset,
-          // the bulge and the removed side all flip with it.
-          onCutChange({
-            ...next,
-            angle: Number((((a + Math.PI) * 180) / Math.PI).toFixed(1)),
-            offset: -offset,
-            amplitude: -cut.amplitude,
-            removedSide: cut.removedSide === 'positive' ? 'negative' : 'positive',
-          });
-        } else {
-          onCutChange({ ...next, angle: Number(((a * 180) / Math.PI).toFixed(1)) });
-        }
+        const next = { ...cut, angle: Math.round(((a * 180) / Math.PI) * 2) / 2, offset };
+        // The slider lives in [0, 180): when the pointer puts the normal in the
+        // lower half-plane, rewrite the same stroke with the opposite normal.
+        onCutChange(a < 0 ? curveUnderFlippedNormal(next) : next);
         return;
       }
 
@@ -246,19 +241,17 @@ export function PaperStage({
       const ny = Math.sin(phi);
       const distance = cut.offset - (cut.nx * pivot.x + cut.ny * pivot.y);
       const offset = nx * pivot.x + ny * pivot.y + distance;
-      const next = { ...cut, nx, ny, offset };
-      const a = Math.atan2(next.ny, next.nx);
-      if (a < 0) {
-        onCutChange({
-          kind: 'line',
-          nx: -next.nx,
-          ny: -next.ny,
-          offset: -next.offset,
-          removedSide: next.removedSide === 'positive' ? 'negative' : 'positive',
-        });
-      } else {
-        onCutChange(next);
+      // Normalise the normal into [0, 180) and onto the half-degree grid, so the
+      // state always matches what the angle slider shows.
+      let deg = (Math.atan2(ny, nx) * 180) / Math.PI;
+      let side = cut.removedSide;
+      let signedOffset = offset;
+      if (deg < 0) {
+        deg += 180;
+        signedOffset = -offset;
+        side = side === 'positive' ? 'negative' : 'positive';
       }
+      onCutChange(cutFromAngle(Math.round(deg * 2) / 2, signedOffset, side));
     },
     [cut, onCutChange, pivot.x, pivot.y],
   );

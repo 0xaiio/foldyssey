@@ -6,25 +6,30 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v0.7.2（关于页与实现对齐、公式改为矢量符号、补参考文献） |
+| 版本 | v0.7.3（全面代码审查：修 11 个问题、补 199 个用例、核心覆盖率 96.7%） |
 | 分支 | `main` |
-| 最新提交 | `4cb584a`（关于页对齐 + 公式矢量化）· 功能提交 `3959b7e` |
-| 构建 | `npm run build` 通过（主包 282 kB / gzip 99 kB；`AiPage` 独立 chunk 156 kB 懒加载） |
-| 测试 | `npm run test` → **112 passed \| 1 skipped**（含 7 个结构渲染用例）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器；`node tools/ai_smoke.mjs` 通过 |
-| 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.0，更新发布后核验） |
+| 最新提交 | 见 `git log -1`（本次审查提交）· 功能提交 `3959b7e` |
+| 构建 | `npm run build` 通过（主包 286.8 kB / gzip 102.0 kB；`AiPage` 独立 chunk 157.3 kB 懒加载；CSS 40.0 kB / gzip 9.0 kB） |
+| 测试 | `npm run test` → **199 passed \| 1 skipped**（10 个文件）；`npx vitest run --coverage` → 行 **96.73%** / 分支 **87.89%** / 函数 **95.06%**（核心 17 个模块）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器 |
+| 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（线上为 v0.7.2 内容；v0.7.3 待发布） |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
-| 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session） |
+| 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session）/ `foldyssey.ai.draft.v1`（session） |
 
 ## 已完成并验证
 
-- 四种折叠预设 + 一刀半平面切割 + 逐层逆映射 + 展开并集
-- 黄金样例（中心菱形，面积 `2d²`）与 29 个单元用例
-- 6 个关卡（目标由标准解正向生成，每关可通关）
-- 关卡页完整状态机 + 折叠相机 + 斜纹切区预览 + IoU 评分 + 差异覆盖
-- 工坊（双视图 / ≤3 切口 / 配色 / 撤销重做 / 保存 / SVG+PNG 导出）
-- 作品集、5 张数学交互卡片、关于页（含能力边界）
-- 桌面 1440px 与移动 390px 通过浏览器验证，无 console 错误
-- WorkBuddy 网站应用已发布并核验
+- **5 种折叠预设**（不折 / 竖折 / 横折 / 正交双折 / 八折，1/2/2/4/8 层）
+  + **4 种切割原语**（直线 / 折剪 / 镂空 / 曲线）+ 边缘锯齿（由菱形镂空排成）
+- 展开管线：纸包内一次相减 → 逐层等距映射 → 整纸逐层相减；
+  不变量 `paper ⊆ P`、`area(paper)+area(removed)=4`、逐层等面积、切口可交换全部有测试
+- **16 关 / 5 阶段**，目标由标准解正向构造；「剪刀能力」四级（一刀/两刀/拐弯/曲线）
+  由 `skillOf()` 计算、曲边占比实测
+- 关卡页：状态机 + 折叠相机 + 斜纹切区预览 + IoU 四档评分 + 差异覆盖 + 一键诊断
+- 工坊：双视图 / ≤3 切口 / 四种刀型互转 / 配色 / 撤销重做 / 保存 / SVG+PNG 导出
+- AI 灵感：运行时模型 + schema 强制修复 + 6 个可编辑模板 + 两次 JSON 重试
+- 作品集、5 张数学卡片、关于页（能力与定理表述已核对）
+- 2026-10-30 桌面 1440px 与移动 390px 通过浏览器验证，无 console 错误；
+  2026-10-31 起本机浏览器不可用，改由 28 个结构渲染用例补位
+- WorkBuddy 网站应用已发布并核验（v0.7.2；v0.7.3 待发布）
 
 ## 未完成
 
@@ -39,7 +44,7 @@
 
 ## 已知问题
 
-0. 关卡 4–6 与 AI 生成的花瓣都使用**折剪**（V 形，两段），不是「一刀直线」：直线与任意
+0. 折剪关（八角星 / 团花 / 万象团花等）与 AI 生成的花瓣都使用**折剪**（V 形，两段），不是「一刀直线」：直线与任意
    对称群作用下的并集仍是半平面之交，只能得到凸多边形。UI 按实际组成标注（「1 个折剪」「7 刀」），
    不混称一刀。
 0b. AI 生成的图案**仍然没有曲线**：关卡与创作台已经支持曲线剪（`curve`），但 AI 的输出 schema
