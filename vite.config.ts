@@ -9,6 +9,23 @@ export default defineConfig({
   // the OS temp directory, which makes Vitest's SSR module cache fail (EPERM).
   cacheDir: 'node_modules/.vite-cache',
   plugins: [react(), tailwindcss()],
+  // Hosted deploys inject PORT and proxy a custom domain onto the container.
+  // Without these two lines the server binds 5173 and rejects the proxy host,
+  // which is exactly how the first v0.7.0 deploy failed (port 3000 not
+  // listening after 60 s). Keep it: `npm run dev` and `npm run preview` then
+  // work locally (PORT unset -> 5173 / 4173) and behind the proxy alike.
+  server: {
+    host: '0.0.0.0',
+    port: Number(process.env.PORT) || 5173,
+    strictPort: Boolean(process.env.PORT),
+    allowedHosts: true,
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: Number(process.env.PORT) || 4173,
+    strictPort: Boolean(process.env.PORT),
+    allowedHosts: true,
+  },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
