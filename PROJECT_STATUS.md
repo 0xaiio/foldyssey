@@ -8,7 +8,7 @@
 |---|---|
 | 版本 | v0.7.0（曲线剪 + 剪刀能力四级 + 5 个新关卡） |
 | 分支 | `main` |
-| 最新提交 | `66cb249`（docs）· 功能提交 `3959b7e` |
+| 最新提交 | `44ae894`（docs: 定理表述修正）· 功能提交 `3959b7e` |
 | 构建 | `npm run build` 通过（主包 282 kB / gzip 99 kB；`AiPage` 独立 chunk 156 kB 懒加载） |
 | 测试 | `npm run test` → **104 passed \| 1 skipped**（含 7 个结构渲染用例）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器；`node tools/ai_smoke.mjs` 通过 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.0，更新发布后核验） |
