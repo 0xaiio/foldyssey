@@ -91,3 +91,5 @@
 2. 录制 60 秒演示视频（脚本已备）。
 3. 填写身份/联系方式/授权条款并提交。
 4. 若需长期保存作品，使用工坊的 SVG/PNG 导出（本地存储会随清缓存丢失）。
+| M8 曲线剪 | `3959b7e49606e2745a713dc25d95113fc1c17545` | feat(cut): curved scissor strokes and the four-rung scissor ladder | main | ✅ | `vitest` 104 passed；`build` 通过；发布 `verified: true` |
+| M8.1 部署修复 | `9275067` | fix(deploy): bind the injected PORT and allow the proxy host | main | ✅ | `PORT=4192 npm start` → 200；重新发布成功 |
