@@ -6,11 +6,11 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v0.7.1（AI 模板改版：6 个具体模板 + 可编辑的完整简报） |
+| 版本 | v0.7.2（关于页与实现对齐、公式改为矢量符号、补参考文献） |
 | 分支 | `main` |
-| 最新提交 | `9700a8a`（AI 模板改版）· 功能提交 `3959b7e` |
+| 最新提交 | `4cb584a`（关于页对齐 + 公式矢量化）· 功能提交 `3959b7e` |
 | 构建 | `npm run build` 通过（主包 282 kB / gzip 99 kB；`AiPage` 独立 chunk 156 kB 懒加载） |
-| 测试 | `npm run test` → **108 passed \| 1 skipped**（含 7 个结构渲染用例）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器；`node tools/ai_smoke.mjs` 通过 |
+| 测试 | `npm run test` → **112 passed \| 1 skipped**（含 7 个结构渲染用例）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器；`node tools/ai_smoke.mjs` 通过 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.0，更新发布后核验） |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session） |
