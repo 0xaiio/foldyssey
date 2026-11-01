@@ -12,7 +12,7 @@
 | 构建 | `npm run build` 通过（主包 314.7 kB / gzip 107.1 kB，其中公式 +5.1 kB gzip；`AiPage` 独立 chunk 157.3 kB 懒加载；CSS 39.7 kB / gzip 8.9 kB） |
 | 测试 | `npm run test` → **214 passed \| 1 skipped**（11 个文件）；`npx vitest run --coverage` → 行 **96.73%** / 分支 **87.89%** / 函数 **95.06%**（核心 17 个模块）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.4，2026-11-01 重新发布并核验 `verified: true`） |
-| 宣传视频 | `video/out/Foldyssey-1024.mp4`（3:46.66，1920×1080@30，硬字幕，31.8 MB，−16 LUFS；生成方式见 `video/README.md`） |
+| 宣传视频 | `video/out/Foldyssey-1024.mp4`（**v2 · 3:29**，1920×1080@30，男声旁白、无配乐、硬字幕；仅本人审核，未投稿；生成方式见 `video/README.md`） |
 | 投稿包 | `submission/contest_submission_pack.md`（表单速填）、`submission/bilibili_publish.md`（B 站标题/标签/简介） |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session）/ `foldyssey.ai.draft.v1`（session） |

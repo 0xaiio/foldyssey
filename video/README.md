@@ -1,21 +1,23 @@
-# 宣传视频（3:47，1080p30）
+# 宣传视频（3:29，1080p30）
 
-这条片子**没有录屏**：本机的 Edge 与 Chromium 从 2026-10-31 起启动即退出（见 `TEST_REPORT.md`
-第八轮），所以画面是用项目自己的几何引擎导出数据、再用 Pillow 逐帧画出来的；
-只有 4 张界面截图来自浏览器还能用时的自查记录。每一帧都能复现。
+这一版是「面向用户」的版本：没有技术细节、没有背景音乐，只有稳一点的男声旁白与逐句对齐的字幕。
+
+本机没有可用的浏览器（Edge / Chromium 启动即退出，见 `TEST_REPORT.md` 第八轮），所以画面**不是录屏**：
+图案用项目自己的几何引擎导出，再用 Pillow 逐帧绘制；只有 4 张界面截图来自浏览器还能用时的记录。
 
 ## 文件
 
 | 文件 | 作用 |
 |---|---|
-| `script.py` | **内容的唯一来源**：9 个场景、38 句旁白与字幕、链接 |
-| `tts.py` | SAPI（Microsoft Huihui）逐句合成 → 由音频长度反推时间轴 → 生成 SRT / ASS / 口播稿 |
-| `render.py` | 画面渲染：品牌色、纸张底、遮罩、投影、截图卡、成帧与 ffmpeg 管道 |
-| `scenes.py` | 九个场景的绘制（开场折叠/展开、定理、产品、原理、关卡图表、图案、AI、可信度、片尾） |
-| `music.py` | 用 numpy 合成配乐（Karplus-Strong 拨弦 + 正弦垫音 + 多抽头延迟） |
-| `make.py` | 混音（人声侧链压低音乐）、烧字幕、输出成片与封面 |
-| `gen/` | 中间产物（不入库）：`timeline.json`、`voice.wav`、`music.wav`、`picture.mp4`、字幕 |
-| `out/` | 交付件（不入库）：`Foldyssey-1024.mp4`、两张封面 |
+| `script.py` | **内容的唯一来源**：9 个场景、42 句旁白与字幕、链接 |
+| `tts.py` | Edge 神经语音逐句合成 → 由音频长度反推时间轴 → 生成 SRT / ASS / 口播稿 |
+| `render.py` | 画面渲染基础件：品牌色、纸张底、遮罩、投影、截图卡、成帧与 ffmpeg 管道 |
+| `scenes.py` | 九个场景：开场、首页、关卡、图案库、工坊、AI 灵感、手机、局限、参考资料 |
+| `parallel.py` | 把时间轴切给 6 个进程并行渲染，再拼成一条 |
+| `make.py` | 烧字幕、归一化响度、输出 MP4 与两张封面 |
+| `shotlist.py` | 从时间轴生成分镜表 `out/shotlist.md` |
+| `gen/` | 中间产物（不入库）：旁白、时间轴、ASS/SRT、分段视频 |
+| `out/` | 交付件：`Foldyssey-1024.mp4`、封面、分镜 |
 
 ## 重新生成
 
@@ -26,38 +28,37 @@ cd video
 cd .. && FOLDYSSEY_VIDEO=1 npx vitest run src/tests/video.dump.test.ts
 FOLDYSSEY_VIDEO=1 npx vitest run src/tests/video.margin.test.ts && cd video
 
-# 1) 旁白 + 时间轴 + 字幕（Windows SAPI 中文语音）
+# 1) 旁白 + 时间轴 + 字幕（需要联网，Edge 语音）
 python tts.py
 
-# 2) 配乐
-python music.py
+# 2) 画面（6 进程，约 3 分钟）
+python parallel.py --workers 6
 
-# 3) 画面（约 10 分钟，1080p30，直接管道给 x264）
-python render.py --video
-
-# 4) 混音 + 烧字幕 + 封面
+# 3) 混音（只有人声）+ 烧字幕 + 封面
 python make.py
+
+# 4) 分镜表
+python shotlist.py
 ```
 
-只想看某一帧：
-
-```bash
-python render.py --scene open --t 3.0 --out /tmp/f.png
-```
+只改一句旁白：改 `script.py` 后重跑 `tts.py`（缓存按文本哈希失效，只有那一句会重新合成），
+再 `python parallel.py && python make.py`。
 
 ## 依赖
 
-- Python：`pillow`、`numpy`、`pywin32`（SAPI）、`qrcode`（片尾二维码）、`fonttools`（只用于查缺字）
+- Python：`pillow`、`numpy`、`edge-tts`、`qrcode`、`fonttools`（查缺字用）
 - ffmpeg / ffprobe（本机为 MSYS2 的 9.0.2，需带 libass 与 libx264）
 - 字体：`Microsoft YaHei`（正文）、`Book Antiqua`（拉丁标题）
-- 公式：直接复用站点构建产物 `src/content/formulas.generated.ts`，用 `tools/svgprobe.py` 栅格化
+- 公式：复用站点构建产物 `src/content/formulas.generated.ts`，用 `tools/svgprobe.py` 栅格化
 
 ## 几个刻意的取舍
 
-- **旁白逐句合成**：一句话一个 WAV，场景长度由音频长度决定，所以字幕、画面、声音不可能错位。
-- **画面不造假**：图案来自 `applyCuts()` 的真实输出；折叠/展开用的是 `foldStepMatrix()` 的同一条公式
-  （`render.py: step_matrix` 与 `src/geometry/fold.ts` 逐行对应）。
-- **不假装录屏**：全片没有一个"模拟鼠标"的动画，界面段落直接给截图卡，并标注资料来源。
-- **配乐自制**：不用任何第三方音乐，避免版权与"非自制"判定。
-- **数字都来自实测**：96.55% 是 `video.margin.test.ts` 跑出来的最差一格；214 / 96.7% 来自
-  `npx vitest run` 与 `--coverage`。
+- **一句一合成**：每句独立成音频，字幕就是这一句，起止即音频起止，**不可能不同步**；
+  句间只留 0.16–0.24 秒的自然停顿（按句末标点决定），不切分句内停顿。
+- **男声**：`zh-CN-YunyangNeural`（专业、可靠）−3% 语速。本机 SAPI 只有女声 Huihui，OneCore 的
+  Kangkang 未挂到 SAPI，所以用 Edge 的神经语音。
+- **没有配乐**：按需求只保留人声；`make.py` 里只剩 `loudnorm I=-16 TP=-1.5` 一条音轨处理。
+- **画面不造假**：图案来自 `applyCuts()` 的真实输出；折叠/展开用的 `step_matrix()` 与
+  `src/geometry/fold.ts` 的 `foldStepMatrix()` 逐行对应。
+- **界面段落给截图卡**，不模拟鼠标；哪一块是截图、哪一块是渲染，分得清。
+- **不讲技术**：全片不出现几何、容差、覆盖率；数字只在「参考资料」页作为出处出现。

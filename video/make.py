@@ -4,8 +4,11 @@ the cover.
 
     python make.py
 
-Reads   gen/picture.mp4, gen/voice.wav, gen/music.wav, gen/subtitles.ass
+Reads   gen/picture.mp4, gen/voice.wav, gen/subtitles.ass
 Writes  out/Foldyssey-1024.mp4  (H.264 1080p30, AAC 192k, subtitles burned in)
+
+There is **no music bed** in this cut: the brief was "去掉背景音乐，只要人声".
+The narration is normalised to -16 LUFS, which is what streaming players expect.
         out/Foldyssey-cover.png (1920x1080) and out/Foldyssey-cover-1146x717.png
 """
 
@@ -34,25 +37,17 @@ def mux() -> Path:
     # -filter_complex: [0:v] burn subs; music ducked under the voice; limiter last.
     graph = (
         "[0:v]ass=gen/subtitles.ass[v];"
-        "[2:a]volume=0.30,highpass=f=60[m];"
-        # the voice feeds both the sidechain and the mix, so it must be split
-        "[1:a]aresample=48000,volume=1.0,asplit=2[voice][side];"
-        "[m][side]sidechaincompress=threshold=0.02:ratio=8:attack=15:release=420:makeup=1[duck];"
-        # B站 plays loudness-normalised, so target -16 LUFS / -1.5 dBTP instead of
-        # leaving the mix at whatever the synthesiser happened to produce.
-        "[duck][voice]amix=inputs=2:duration=first:normalize=0,"
-        "loudnorm=I=-16:TP=-1.5:LRA=11,alimiter=limit=0.94[a]"
+        "[1:a]aresample=48000,loudnorm=I=-16:TP=-1.5:LRA=11,alimiter=limit=0.94[a]"
     )
     cmd = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(GEN / "picture.mp4"),
         "-i", str(GEN / "voice.wav"),
-        "-i", str(GEN / "music.wav"),
         "-filter_complex", graph,
         "-map", "[v]", "-map", "[a]",
         "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p",
         "-r", "30",
-        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
         "-t", f"{total:.3f}",
         "-movflags", "+faststart",
         "-metadata", "title=Foldyssey 一刀万象 · 1024 造物挑战",
@@ -82,7 +77,7 @@ def cover() -> None:
     text(d, (906, 552), "图案不是画上去的，是算出来的。", cn(27), (86, 91, 86))
     d.rounded_rectangle([906, 640, 1640, 712], 10, fill=(255, 253, 248), outline=(201, 164, 106), width=2)
     text(d, (926, 658), "foldyssey.app.workbuddy.host", cn(25), (157, 43, 57))
-    text(d, (906, 760), "16 关 · 5 种折法 · 4 种刀具 · 214 个测试", cn(22), (138, 141, 134))
+    text(d, (906, 760), "免登录 · 免下载，随手就能玩", cn(22), (138, 141, 134))
     img.convert("RGB").save(OUT / "Foldyssey-cover.png")
 
     # ---- B站 thumbnail, 1146×717, laid out for its own aspect ----
@@ -99,7 +94,7 @@ def cover() -> None:
     text(td, (508, 336), "图案不是画上去的，是算出来的。", cn(19), (86, 91, 86))
     td.rounded_rectangle([508, 386, 1080, 438], 8, fill=(255, 253, 248), outline=(201, 164, 106), width=2)
     text(td, (524, 399), "foldyssey.app.workbuddy.host", cn(18), (157, 43, 57))
-    text(td, (508, 470), "16 关 · 5 种折法 · 4 种刀具 · 214 个测试", cn(16), (138, 141, 134))
+    text(td, (508, 470), "免登录 · 免下载，随手就能玩", cn(16), (138, 141, 134))
     t.convert("RGB").save(OUT / "Foldyssey-cover-1146x717.png")
     print("cover written")
 
