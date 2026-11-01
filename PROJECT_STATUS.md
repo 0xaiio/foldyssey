@@ -8,7 +8,7 @@
 |---|---|
 | 版本 | v0.7.4（公式改为构建期 LaTeX→SVG；214 个用例，核心覆盖率 96.7%） |
 | 分支 | `main` |
-| 最新提交 | 见 `git log -1`（公式渲染）· 审查提交 `15f745e` |
+| 最新提交 | `cc4af91`（公式渲染）· 审查提交 `15f745e` |
 | 构建 | `npm run build` 通过（主包 314.7 kB / gzip 107.1 kB，其中公式 +5.1 kB gzip；`AiPage` 独立 chunk 157.3 kB 懒加载；CSS 39.7 kB / gzip 8.9 kB） |
 | 测试 | `npm run test` → **214 passed \| 1 skipped**（11 个文件）；`npx vitest run --coverage` → 行 **96.73%** / 分支 **87.89%** / 函数 **95.06%**（核心 17 个模块）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（线上为 v0.7.2 内容；v0.7.4 待发布） |
@@ -90,6 +90,7 @@
 | M8 曲线剪 | `3959b7e49606e2745a713dc25d95113fc1c17545` | feat(cut): curved scissor strokes and the four-rung scissor ladder | main | ✅ | `vitest` 104 passed；`build` 通过；发布 `verified: true` |
 | M8.1 部署修复 | `9275067` | fix(deploy): bind the injected PORT and allow the proxy host | main | ✅ | `PORT=4192 npm start` → 200；重新发布成功 |
 | M9 全面审查 | `15f745e` | fix(geometry): stop the cut engine from silently leaving a layer uncut | main | ✅ | `vitest` 199 passed；覆盖率 96.73/87.89/95.06；`build` 通过 |
+| M10 公式渲染 | `cc4af91` | feat(formulas): compile LaTeX to self-contained SVG at build time | main | ✅ | `vitest` 214 passed；`svgprobe.py` 目视 4 条；`build` 通过；线上待发布 |
 
 > 说明：本次开发在单个工作会话内完成，M0–M3 的代码是一体设计的一体实现，
 > 三次提交是**真实检查点**（脚手架 → 几何可测 → 界面可用），
