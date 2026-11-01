@@ -99,7 +99,18 @@
 | — | 新增 87 个用例 | P0 | 已完成 | `src/tests/{core.review,difference.fallback,ai.client,services,pages.smoke}` | 199 passed / 1 skipped | — |
 | — | 接口文档与审查报告 | P1 | 已完成 | `docs/API.md`、`docs/CODE_REVIEW.md` | 文档索引已更新 | — |
 
-## 七、明确不做（不适用）
+## 七、公式渲染（v0.7.4）
+
+| ID | 任务 / 验收条件 | 优先级 | 状态 | 实现文件 / 思路 | 验证证据 | 遗留 |
+|---|---|---|---|---|---|---|
+| F-01 | 公式统一以 LaTeX 为源，不再出现依赖字体的数学字符 | P0 | 已完成 | `tools/formulas.source.mjs`（8 条） | `formulas.test.tsx`：生成物无 `⋃ ∪ ∩ ᵢ ⁻`；`ui.test.tsx`：关于页无 `<sub>/<sup>` | — |
+| F-02 | 构建期编译成自包含图片（SVG）并嵌入 | P0 | 已完成 | `tools/build_formulas.mjs`（MathJax `TeX→SVG`，`fontCache:none`）→ `src/content/formulas.generated.ts` | 每个 SVG 含 `viewBox`、纯路径、无脚本/外链/字体 | 产物 +5.1 kB gzip |
+| F-03 | 评估比图片更优的方案 | P1 | 已完成 | `docs/MATH_RENDERING.md`：位图 / 运行时 KaTeX / 运行时 MathJax / 原生 MathML / 构建期 SVG | 表格与取舍理由 | — |
+| F-04 | 展示清晰、无乱码、无错位 | P0 | 已完成 | `Formula.tsx` + `.mathformula` 样式；保留 MathJax 的 `ex` 基线；`overflow: visible` | `tools/svgprobe.py` 逐条栅格化目视：展示公式、`paper`、`preimage`、`clipped` | 页内环绕/行高未做浏览器回归 |
+| F-05 | 可访问性 | P1 | 已完成 | `role="math"` + 完整中文读法；绘图 `aria-hidden` | 组件测试 | 读屏软件未实测 |
+| F-06 | 防"改了源忘记重新生成" | P1 | 已完成 | 生成物内写源文件 SHA-256 前 16 位 | `is regenerated whenever the source file changes` | — |
+
+## 八、明确不做（不适用）
 
 | 项 | 原因 |
 |---|---|
@@ -109,7 +120,7 @@
 | 实体可打印模板核验 | 未做 A4 比例尺与折序核验，因此不写 `verified` |
 | 账号 / 云同步 | ADR-0005 |
 
-## 八、下一步（若继续）
+## 九、下一步（若继续）
 
 1. 接入运行时 AI（`docs/AI_INTEGRATION.md` 的方案），补齐 AI 端到端测试。
 2. 增加斜折预设（45° 对角折），需要新的 `forward/inverse` 与无穿透说明。

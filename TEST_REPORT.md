@@ -419,3 +419,47 @@ grand-rosette 75.2 → 76.3 → 77.7 → 89.9 → 91.1 → 93.1    达标
 | 真实指针拖拽 | 需要浏览器事件；新加的"角度对齐滑块网格"只做了类型与结构层验证 |
 | 覆盖率对 `pages/components` | 刻意不纳入门槛（JSX 行覆盖率会失真），由 28 个结构渲染用例补位 |
 | 移动端 390 px 版式 | 同上 |
+
+## 2026-11-01 · 第十轮（公式改 LaTeX → SVG / v0.7.4）
+
+环境：Windows 11 / Node v22.22.2 / 无浏览器。本轮只改「关于」页公式的呈现，
+不碰几何。
+
+| 命令 | 结果 | 备注 |
+|---|---|---|
+| `node tools/build_formulas.mjs` | 8 条公式 → 29.9 kB 生成模块 | MathJax `TeX→SVG`，`fontCache: 'none'`，字形全部转路径 |
+| `npx tsc --noEmit` | 通过（0 error） | — |
+| `npx vitest run` | **214 passed / 1 skipped** | 新增 `formulas.test.tsx` 15 条 |
+| `npm run build` | 成功 | 主包 314.7 kB / gzip 107.1 kB（公式 +5.1 kB gzip）；CSS 39.7 kB / gzip 8.9 kB |
+| `python tools/svgprobe.py unfold paper preimage clipped` | 目视通过 | 展示公式与 3 个内联符号逐条栅格化核对 |
+
+### 1. 旧方案为什么错
+
+不是"某台机器没装字体"，而是把正确性交给了运行环境：`⋃`(U+22C3) 在 300+ 个
+字体里只有 2 个覆盖、页面字体栈一个都没有；`ᵢ`、`⁻¹` 也靠回退。`<sup>` 的
+`vertical-align: 0.55em` 是按 15px 估的。换字号或换机器就会错位或缺字。
+
+### 2. 方案比较（详见 `docs/MATH_RENDERING.md`）
+
+位图（PNG/WebP）只在一个倍率清晰、颜色烧死；运行时 KaTeX/MathJax 要
+280 kB–1 MB 且**仍然依赖 webfont**（与本问题同类）；原生 MathML 仍取决于
+系统数学字体。选**构建期 TeX→自包含 SVG**：字形是路径，无字体依赖、无运行时、
+`currentColor` 跟随主题、`ex` 基线由 MathJax 写入。
+
+### 3. 验证方式（没有浏览器）
+
+新增 `tools/svgprobe.py`：从生成文件取出 SVG，按 MathJax 实际使用的路径子集
+（`M L H V Q T Z` + 嵌套 `translate/scale`）展平，用非零环绕规则填充成 PNG。
+它验证"画出来对不对"，而不只是"路径字符串合法"。
+
+实际发现并修掉了工具自身的一个 bug：`Z` 闭合点用了未变换的坐标，导致每个
+子路径都有一条回到字形原点的长刺——第一版 PNG 上能清楚看到一条斜线。修好后
+`S = ⋃ᵢ ( Pᵢ \ fᵢ⁻¹( D ∩ fᵢ(Pᵢ) ) )` 与 `P = [-1,1]²`、`fᵢ⁻¹(D)` 均正确、
+无缺字、无镜像、无重叠。
+
+### 4. 未覆盖
+
+| 项 | 原因 |
+|---|---|
+| 页内实际排版（环绕、行高、移动端横向滚动） | 无浏览器；只验证了 SVG 的几何与 `ex` 基线属性 |
+| 读屏软件实测 | 只验证了 `role="math"` + `aria-label` 的结构 |

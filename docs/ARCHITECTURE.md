@@ -8,7 +8,7 @@
 │                  Explore / About      （路由与页面状态）  │
 ├──────────────────────────────────────────────────────────┤
 │ components/      PaperStage（SVG 渲染器）· MiniPattern ·  │
-│                  Toast                                   │
+│                  Formula（构建期 SVG）· Toast             │
 ├──────────────────────────────────────────────────────────┤
 │ ai/              schema（zod）· prompt · client · draft    │
 │                  （懒加载 chunk，不进首屏 bundle）          │
@@ -24,6 +24,10 @@
 
 **依赖方向只能向下。** `geometry/` 不 import 任何上层模块，也不接触 DOM，
 因此可以在 Node 里直接跑单元测试（`environment: 'node'`）。
+
+**构建期产物**：`tools/formulas.source.mjs`（LaTeX）→ `npm run build:formulas` →
+`src/content/formulas.generated.ts`（MathJax 编译出的自包含 SVG）。浏览器端没有
+排版引擎、没有数学字体；产物入库，源文件哈希由测试守住。详见 `docs/MATH_RENDERING.md`。
 
 ## 2. 单一可信源
 

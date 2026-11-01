@@ -250,3 +250,18 @@ generateDesign(input: string): Promise<AiResult>
 | `describeDesign(design)` | 给 UI 的一句摘要，不算几何 |
 
 模型只决定**参数**；`paper` 始终由 `applyCuts` 计算（单一可信源）。
+
+---
+
+## 10. 展示层：公式
+
+| 导出 | 契约 |
+|---|---|
+| `FORMULAS`（`src/content/formulas.generated.ts`） | 8 条公式：`tex`（LaTeX 源）、`label`（中文读法）、`display`、`svg`（自包含 MathJax SVG）。**生成物，不要手改** |
+| `FORMULA_SOURCE_HASH` | `tools/formulas.source.mjs` 的 SHA-256 前 16 位；`formulas.test.tsx` 用它检测"改了源没重新生成" |
+| `Formula({ name, className? })` | 渲染 `<span role="math" aria-label={label}>`，内部 SVG 为 `aria-hidden`。`name` 是生成模块的键，拼错在 `tsc` 阶段报错 |
+| `npm run build:formulas` | 重新生成上表；`mathjax-full` 只在构建期使用 |
+
+不变量（有测试）：每个 SVG 以 `<svg` 开头、宽高有限、`fill` 只允许 `currentColor`/`none`、
+无脚本 / 外链 / 字体声明、无 `NaN`；SVG 中不出现 `⋃ ∪ ∩ ᵢ ⁻ −`。
+方案对比与改动范围见 `docs/MATH_RENDERING.md`。

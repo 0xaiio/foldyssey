@@ -2,6 +2,44 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/)，版本号遵循语义化版本。
 
+## [0.7.4] — 2026-11-01
+
+### 修复
+
+- **「数学一句话」的符号与公式改为 LaTeX 编译产物**。旧实现用 Unicode 字符
+  （`⋃`/`ᵢ`/`⁻`/`∩`）配 `<sub>/<sup>`，靠逐字字体回退：`⋃` U+22C3 在本机 300+
+  个字体里只有 2 个覆盖、页面字体栈一个都没有；上标基线是按 15px 估的，
+  换字号或换机器就错位。现在 8 条公式全部由 MathJax 在**构建期**从 LaTeX 编译成
+  自包含 SVG（字形转路径），不再依赖任何数学字体，也没有运行时排版引擎。
+
+### 新增
+
+- `tools/formulas.source.mjs`：公式的 LaTeX 源与中文读法（唯一可信源）。
+- `tools/build_formulas.mjs` + `npm run build:formulas`：TeX → SVG，写入
+  `src/content/formulas.generated.ts`，并写入源文件哈希供测试防漂移。
+- `src/components/Formula.tsx`：`role="math"` + 完整中文读法，内部 SVG `aria-hidden`，
+  路径 `fill="currentColor"` 跟随主题。
+- `tools/svgprobe.py`：无浏览器环境下把公式 SVG 栅格化成 PNG 复核（支持
+  `M L H V Q T Z` 与嵌套 `translate/scale`）。
+- `docs/MATH_RENDERING.md`：位图 / 运行时 KaTeX / 运行时 MathJax / 原生 MathML /
+  构建期 SVG 五种方案的对比与取舍。
+
+### 变更
+
+- 「关于」页删除手绘的并集符号、`<sub>/<sup>` 与估出来的基线；改为
+  `<Formula name="…" />` 引用。展示公式在窄屏横向滚动，不缩到看不清。
+- `mathjax-full` 进 `devDependencies`（仅构建期）；产物入库，不装它也能构建。
+- 版本 0.7.4。
+
+### 测试
+
+- 新增 `src/tests/formulas.test.tsx`（15 条）：源文件哈希、8 条公式的 SVG 结构
+  （自包含 / 无脚本 / 无外链 / 无字体 / 只允许 `currentColor` / 宽高有限）、
+  不再出现稀有数学字符、组件可访问性。
+- 测试总数 199 → **214 passed / 1 skipped**。
+- 由于没有浏览器，新增栅格化复核：展示公式与 `paper`、`preimage`、`clipped`
+  三条内联公式逐条目视通过。
+
 ## [0.7.3] — 2026-10-31
 
 > 全面代码审查轮：不加功能，修正确性与一致性问题，补测试与文档。

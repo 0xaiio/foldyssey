@@ -163,7 +163,7 @@ describe('ui: the about page matches the shipped build', () => {
     expect(html).toContain('四种原语');
     expect(html).toContain('16 关');
     expect(html).toContain('1–6 刀');
-    expect(html).toContain('v0.7.3');
+    expect(html).toContain('v0.7.4');
     // The old text claimed curves were unsupported and the studio capped at
     // three straight cuts.
     expect(html).not.toContain('曲线切口、任意目标图案');
@@ -174,19 +174,26 @@ describe('ui: the about page matches the shipped build', () => {
     expect(html).toContain('能力边界');
   });
 
-  it('renders the formula without relying on rare maths glyphs', () => {
-    // ⋃ (U+22C3) exists in 2 of 300 installed fonts and ᵢ (U+1D62) is missing
-    // from several; both used to be typed literally. Sub/sup are markup now,
-    // and the union is a vector glyph.
+  it('renders every formula as a self-contained SVG compiled from LaTeX', () => {
+    // The previous version mixed Unicode operators with <sub>/<sup>: ⋃ (U+22C3)
+    // existed in 2 of 300 installed faces, and the baseline was an estimate.
+    // Every formula is now a build-time MathJax SVG, so no maths glyph is left
+    // in the markup and nothing depends on a font being installed.
     expect(html).not.toContain('⋃');
     expect(html).not.toContain('ᵢ');
-    expect(html).toContain('class="cup"');
-    expect(html).toContain('aria-label="并集"');
-    expect(html).toContain('role="math"');
-    expect((html.match(/<sub>/g) ?? []).length).toBeGreaterThanOrEqual(6);
-    expect((html.match(/<sup>/g) ?? []).length).toBeGreaterThanOrEqual(2);
-    // ∩ stays as a character: 123 installed fonts have it, including the stack.
-    expect(html).toContain('∩');
+    expect(html).not.toContain('∩');
+    expect(html).not.toContain('<sub>');
+    expect(html).not.toContain('<sup>');
+    // 10 inline occurrences (D appears four times) + the display formula.
+    expect((html.match(/class="mathformula/g) ?? []).length).toBe(11);
+    expect((html.match(/role="math"/g) ?? []).length).toBe(11);
+    expect(html).toContain('aria-label="纸张 P 是负一到一闭区间的平方"');
+    expect(html).toContain('aria-label="S 等于对所有片区 i 取并集');
+    // Glyphs are paths; the drawing inherits the text colour and is hidden from
+    // screen readers in favour of the wrapper's aria-label.
+    expect(html).toContain('viewBox=');
+    expect(html).toContain('currentColor');
+    expect(html).toContain('aria-hidden="true"');
   });
 
   it('cites the two references behind the formula', () => {

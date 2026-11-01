@@ -6,12 +6,12 @@
 
 | 项 | 值 |
 |---|---|
-| 版本 | v0.7.3（全面代码审查：修 11 个问题、补 199 个用例、核心覆盖率 96.7%） |
+| 版本 | v0.7.4（公式改为构建期 LaTeX→SVG；214 个用例，核心覆盖率 96.7%） |
 | 分支 | `main` |
-| 最新提交 | `15f745e`（全面代码审查）· 功能提交 `3959b7e` |
-| 构建 | `npm run build` 通过（主包 286.8 kB / gzip 102.0 kB；`AiPage` 独立 chunk 157.3 kB 懒加载；CSS 40.0 kB / gzip 9.0 kB） |
-| 测试 | `npm run test` → **199 passed \| 1 skipped**（10 个文件）；`npx vitest run --coverage` → 行 **96.73%** / 分支 **87.89%** / 函数 **95.06%**（核心 17 个模块）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器 |
-| 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（线上为 v0.7.2 内容；v0.7.3 待发布） |
+| 最新提交 | 见 `git log -1`（公式渲染）· 审查提交 `15f745e` |
+| 构建 | `npm run build` 通过（主包 314.7 kB / gzip 107.1 kB，其中公式 +5.1 kB gzip；`AiPage` 独立 chunk 157.3 kB 懒加载；CSS 39.7 kB / gzip 8.9 kB） |
+| 测试 | `npm run test` → **214 passed \| 1 skipped**（11 个文件）；`npx vitest run --coverage` → 行 **96.73%** / 分支 **87.89%** / 函数 **95.06%**（核心 17 个模块）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器 |
+| 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（线上为 v0.7.2 内容；v0.7.4 待发布） |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session）/ `foldyssey.ai.draft.v1`（session） |
 
@@ -27,9 +27,11 @@
 - 工坊：双视图 / ≤3 切口 / 四种刀型互转 / 配色 / 撤销重做 / 保存 / SVG+PNG 导出
 - AI 灵感：运行时模型 + schema 强制修复 + 6 个可编辑模板 + 两次 JSON 重试
 - 作品集、5 张数学卡片、关于页（能力与定理表述已核对）
+- **公式**：8 条 LaTeX 在构建期由 MathJax 编译成自包含 SVG；无数学字体依赖、无运行时；
+  源文件哈希由测试守住（`docs/MATH_RENDERING.md`）
 - 2026-10-30 桌面 1440px 与移动 390px 通过浏览器验证，无 console 错误；
   2026-10-31 起本机浏览器不可用，改由 28 个结构渲染用例补位
-- WorkBuddy 网站应用已发布并核验（v0.7.2；v0.7.3 待发布）
+- WorkBuddy 网站应用已发布并核验（v0.7.2；v0.7.4 待发布）
 
 ## 未完成
 

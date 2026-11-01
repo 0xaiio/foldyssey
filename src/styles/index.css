@@ -2316,68 +2316,49 @@ input[type='range']::-moz-range-thumb {
 
 /* ---------- about: formula, references ---------- */
 
-/* Inline maths. No special characters above U+2229: sub/sup are real markup,
-   and the n-ary union is a vector glyph (see AboutPage.tsx for the font scan
-   that forced this). */
-.math {
-  font-family: 'Cambria Math', 'STIX Two Math', 'Times New Roman', serif;
-  font-size: 1.02em;
-  font-style: normal;
+/* Maths: self-contained SVG compiled from LaTeX at build time
+   (tools/formulas.source.mjs -> tools/build_formulas.mjs). Glyphs are paths, so
+   there is no maths font to fall back to; MathJax writes the baseline offset in
+   `ex` on the SVG itself, and the strokes inherit `currentColor`. */
+.mathformula {
+  display: inline;
   color: var(--ink);
   white-space: nowrap;
-}
-
-.math i,
-.formula i {
-  font-style: italic;
-  font-family: 'Cambria Math', 'STIX Two Math', 'Times New Roman', serif;
-}
-
-.math sub,
-.math sup,
-.formula sub,
-.formula sup {
-  font-size: 0.68em;
-  line-height: 0;
+  /* MathJax's own container CSS, reduced to what an inline SVG needs: formulas
+     are always left-to-right and must not inherit letter-spacing/italics. */
+  direction: ltr;
+  unicode-bidi: isolate;
   font-style: normal;
+  letter-spacing: normal;
 }
 
-.math sup,
-.formula sup {
-  vertical-align: 0.55em;
+.mathformula svg {
+  display: inline-block;
+  /* Italic glyphs overhang the viewBox; MathJax's CSS allows it, and without
+     this the outermost <svg> clips the tail of an f or a parenthesis. */
+  overflow: visible;
 }
 
-.math sub,
-.formula sub {
-  vertical-align: -0.22em;
-}
-
+/* Display formula: fixed intrinsic size (never scaled down to illegibility);
+   `margin: auto` centres it when it fits and degrades to left-aligned + scroll
+   when it does not, which `text-align: center` cannot do. */
 .formula {
   margin: 12px 0;
   padding: 12px 14px 13px;
   background: rgba(36, 39, 37, 0.04);
   border: 1px solid var(--line);
   border-radius: 10px;
-  font-size: 15px;
-  line-height: 1.9;
-  letter-spacing: 0.01em;
-  font-family: 'Cambria Math', 'STIX Two Math', 'Times New Roman', serif;
-  overflow-x: auto;
   color: var(--ink);
+  overflow-x: auto;
 }
 
-/* The union operator, drawn rather than typed: 2 of 300 installed fonts have ⋃
-   and none of them is in the page stack. Sized in em so it tracks font-size. */
-.cup {
-  width: 0.68em;
-  height: 0.92em;
-  vertical-align: -0.12em;
-  margin: 0 0.05em;
-  color: inherit;
+.mathformula--display {
+  display: block;
 }
 
-.formula sub {
-  margin-right: 0.12em;
+.mathformula--display svg {
+  display: block;
+  margin: 0 auto;
 }
 
 .refs {

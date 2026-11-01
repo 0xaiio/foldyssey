@@ -1,12 +1,13 @@
 {
   "name": "foldyssey",
   "private": true,
-  "version": "0.7.3",
+  "version": "0.7.4",
   "type": "module",
   "description": "Foldyssey / 一刀万象 — a playable computational paper-art lab.",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "build:formulas": "node tools/build_formulas.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "start": "vite",
     "test": "vitest run",
@@ -28,6 +29,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^2.1.9",
+    "mathjax-full": "^3.2.2",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",

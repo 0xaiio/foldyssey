@@ -1,37 +1,15 @@
 /**
- * The 「数学一句话」 card states the whole engine in one formula, so it has to
- * be legible on any machine, not just this one.
+ * The 「数学一句话」 card.
  *
- * Measured on a stock Windows font set (300+ faces in C:\Windows\Fonts):
- *   ⋃ U+22C3 → only 2 faces (Lucida Sans Unicode, Segoe UI Symbol)
- *   ∪ U+222A → 34 faces, but neither Segoe UI nor Arial
- *   ᵢ U+1D62 → 43 faces;  ⁻¹ → 64 faces
- * None of them is in the page's font stack, so the old formula depended on
- * per-glyph fallback — one missing face away from a tofu box.
- *
- * So the formula is written as HTML: <sub>/<sup> for indices and the inverse
- * (no special characters at all), and the one genuinely rare symbol — the
- * n-ary union — is drawn as a vector glyph that inherits `currentColor`. The
- * text stays selectable, scales with the font size and prints crisp.
+ * Every symbol on this page is a self-contained SVG compiled from LaTeX at build
+ * time (`tools/formulas.source.mjs` → `tools/build_formulas.mjs`). The previous
+ * version mixed Unicode operators with hand-built <sub>/<sup>; it depended on
+ * per-glyph font fallback (⋃ exists in 2 of 300 installed faces) and its
+ * baseline was an estimate. See `docs/MATH_RENDERING.md` for the comparison and
+ * why an SVG beats both a bitmap and a runtime typesetter here.
  */
 
-/** Vector ⋃: two uprights joined by a bowl. Font-independent by construction. */
-function Union() {
-  return (
-    <svg className="cup" viewBox="1.65 0.95 10.7 14.35" role="img" aria-label="并集" focusable="false">
-      <path
-        d="M2.5 1.8V10.4C2.5 15.8 11.5 15.8 11.5 10.4V1.8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="square"
-      />
-    </svg>
-  );
-}
-
-const SPOKEN =
-  'S 等于对所有片区 i 取并集：第 i 片纸的残料，等于 P_i 减去 f_i 的逆映射，作用于 D 与 f_i(P_i) 的交集。';
+import { Formula } from '../components/Formula';
 
 export function AboutPage() {
   return (
@@ -61,7 +39,7 @@ export function AboutPage() {
             不是"看起来像"。
           </p>
           <p className="note" style={{ marginTop: 10 }}>
-            截至 v0.7.3：5 种折法（含不折）、4 种切口原语（直线 / 折剪 / 镂空 / 曲线）、
+            截至 v0.7.4：5 种折法（含不折）、4 种切口原语（直线 / 折剪 / 镂空 / 曲线）、
             16 个关卡分 5 个阶段，并按「剪刀能力」排成四级——一刀、两刀、拐弯、曲线。
           </p>
         </div>
@@ -71,26 +49,18 @@ export function AboutPage() {
             数学一句话
           </h2>
           <p className="lede" style={{ fontSize: 15 }}>
-            纸张 <span className="math"><i>P</i> = [−1, 1]<sup>2</sup></span> 被折叠划分成若干片区{' '}
-            <span className="math"><i>P</i><sub>i</sub></span>，每个片区用一个保距变换{' '}
-            <span className="math"><i>f</i><sub>i</sub></span> 映到纸包。一刀剪掉的是纸包里的一个区域{' '}
-            <span className="math"><i>D</i></span>——直线刀时它是半平面，折剪刀时是折线围出的楔形，
+            纸张 <Formula name="paper" /> 被折叠划分成若干片区{' '}
+            <Formula name="patch" />，每个片区用一个保距变换{' '}
+            <Formula name="map" /> 映到纸包。一刀剪掉的是纸包里的一个区域{' '}
+            <Formula name="region" />——直线刀时它是半平面，折剪刀时是折线围出的楔形，
             曲线刀时是曲线一侧的区域——每个片区各自失去{' '}
-            <span className="math"><i>f</i><sub>i</sub><sup>−1</sup>(<i>D</i>)</span>。展开后的纸就是
+            <Formula name="preimage" />。展开后的纸就是
           </p>
-          <p className="formula" role="math" aria-label={SPOKEN}>
-            <span aria-hidden="true">
-              <i>S</i> = <Union />
-              <sub>i</sub> ( <i>P</i>
-              <sub>i</sub> \ <i>f</i>
-              <sub>i</sub>
-              <sup>−1</sup>( <i>D</i> ∩ <i>f</i>
-              <sub>i</sub>(<i>P</i>
-              <sub>i</sub>) ) )
-            </span>
-          </p>
+          <div className="formula">
+            <Formula name="unfold" />
+          </div>
           <p className="note">
-            这就是本项目的"单一可信源"：动画只是把 <span className="math"><i>S</i></span> 的折叠与展开过程演出来，
+            这就是本项目的"单一可信源"：动画只是把 <Formula name="result" /> 的折叠与展开过程演出来，
             它不会另外构造一套结果。
           </p>
           <div className="refs">
@@ -116,9 +86,9 @@ export function AboutPage() {
             <p className="note">
               上式是本项目自己的写法：它把「每层各失去自己的原像、再把残料并回去」写成一行。
               折叠 = 逐面保距、一刀 = 一次集合差，这两件事来自上面两处文献。式中{' '}
-              <span className="math"><i>D</i> ∩ <i>f</i><sub>i</sub>(<i>P</i><sub>i</sub>)</span>{' '}
-              在实现里恒等于 <span className="math"><i>D</i></span>（裁剪时 <span className="math"><i>D</i></span>{' '}
-              已经限定在纸包内）；写成交集是为了让公式在 <span className="math"><i>D</i></span>{' '}
+              <Formula name="clipped" />{' '}
+              在实现里恒等于 <Formula name="region" />（裁剪时 <Formula name="region" />{' '}
+              已经限定在纸包内）；写成交集是为了让公式在 <Formula name="region" />{' '}
               未被裁剪时也成立。具体到本项目五种折法、四种刀具的映射，见{' '}
               <span className="mono">docs/GEOMETRY_SPEC.md</span>。
             </p>
@@ -221,7 +191,7 @@ export function AboutPage() {
       </div>
 
       <p className="note" style={{ marginTop: 22 }}>
-        Foldyssey v0.7.3 · 2026 年 10 月 · WorkBuddy「1024 造物挑战」参赛作品
+        Foldyssey v0.7.4 · 2026 年 11 月 · WorkBuddy「1024 造物挑战」参赛作品
       </p>
     </>
   );

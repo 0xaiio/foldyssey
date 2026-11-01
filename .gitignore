@@ -51,3 +51,6 @@ ai/
 
 # local scratch: rasteriser output & browser profiles
 .tmp-shots/
+
+# formula rasteriser output (tools/svgprobe.py)
+.tmp-formulas/

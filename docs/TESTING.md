@@ -5,7 +5,7 @@
 
 ## 1. 单元测试（`npm run test`）
 
-位置 `src/tests/`，共 **199 个用例（+1 个默认跳过）**，10 个文件（9 个默认运行），按组：
+位置 `src/tests/`，共 **214 个用例（+1 个默认跳过）**，11 个文件（10 个默认运行），按组：
 
 > `vite.config.ts` 里设了 `fileParallelism: false`：在受限 shell 中多个 worker 同时
 > 启动会争抢模块缓存的临时目录（EPERM），导致测试文件被静默丢弃。串行加载后稳定。
@@ -30,6 +30,7 @@
 | difference fallback（4 个） | 布尔回退 | 注入一次性失败后逐成员相减仍然生效；远处大 B 不清纸；覆盖时返回空 |
 | services（`services.test.ts`，17 个） | 导出与存储 | SVG 转义、PNG 走 canvas、中文标题回落、配额/损坏/升级、进度合并、草稿往返 |
 | pages smoke（`pages.smoke.test.tsx`，28 个） | 结构渲染（无浏览器） | App 导航是真实链接；7 个页面可渲染；16 关路径无 `NaN`；未知关卡兜底；分级条唯一当前档 |
+| formulas（`formulas.test.tsx`，15 个） | 公式流水线 | 生成物与 LaTeX 源的哈希一致；SVG 自包含（无脚本/外链/字体）、宽高有限、只允许 `currentColor`；不含 `⋃ ∪ ∩ ᵢ ⁻`；`<Formula>` 暴露 `role="math"` + 中文读法、隐藏绘图 |
 
 断言口径：允许 `1e-9` 级浮点误差（`toBeCloseTo(x, 9)`）；
 结构一致性用路径字符串完全相等（确定性）。
@@ -105,6 +106,7 @@ EDGE_ATTACH_PORT=9231 python tools/ui_check.py
 2. `npm run test` 全绿。
 3. `npm run build` 成功。
 4. `npx vitest run --coverage` 行覆盖率 ≥ 85%（核心 17 个模块）。
+4b. 改了公式源文件时，先 `npm run build:formulas`；`formulas.test.tsx` 会用哈希拦住漏生成。
 5. `tools/ui_check.py` 全 PASS 且 `console issues: 0`（**需要能启动浏览器的环境**；
    2026-10-31 起本机浏览器启动即退出，该项沿用 v0.6.0 的 45/45，并由结构渲染用例补位）。
 6. 线上链接在无痕窗口能打开并完成一关（见 `docs/DEPLOYMENT.md`）。
