@@ -196,9 +196,9 @@ https://github.com/0xaiio/foldyssey
 |---|---|
 | 打不开 / 白屏 | 链接要整条复制，末尾的 `?sharecode=AXD6562N6Z` 不能少；换 Chrome 或 Safari 再试。 |
 | 用了什么技术 | 片子里故意没讲。仓库 README 有完整说明，几何部分是 TypeScript 写的。 |
-| 能拿去用 / 二创吗 | 代码是公开的，但仓库目前还没放 LICENSE；想复用先开个 issue 说一声。 |
+| 能拿去用 / 二创吗 | 可以，代码是 MIT 许可，保留版权声明就行；改了欢迎回来说一声。 |
 
-> 如果打算开放复用，先给仓库补一个 LICENSE（MIT 最省事），再把这条回复改成明确许可；现在「公开可见」不等于「可复用」。
+> 仓库已于 2026-11-01 放 `LICENSE`（MIT，Copyright (c) 2026 0xaiio）。若以后换许可证，这条回复要与 README 同步改。
 
 ---
 

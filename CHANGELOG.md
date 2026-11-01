@@ -2,6 +2,22 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/)，版本号遵循语义化版本。
 
+## [许可] — 2026-11-01 · 代码改用 MIT
+
+> 应用代码未改动，只改许可与相关文档。此前按 A-08 假设「不擅自选择许可证」，
+> 本次由所有者明确授权，该假设关闭。
+
+### 新增
+
+- 根目录 `LICENSE`：MIT，Copyright (c) 2026 0xaiio。
+- `package.json` 增加 `"license": "MIT"`。
+
+### 同步
+
+- README「许可」段改写；`submission/references_licenses.md` 第四节改为明确许可。
+- `docs/ASSUMPTIONS.md` A-08 标记为「已决定：MIT」，保留原假设作记录。
+- `submission/bilibili_publish.md` 置顶评论的「二创」回复改为明确许可。
+
 ## [重制] — 2026-11-01 · 宣传片 v2：男声、无配乐、只讲使用
 
 > 应用代码未改动。这一版按「先整体后局部、从粗到细」重写，并把技术内容全部移出。

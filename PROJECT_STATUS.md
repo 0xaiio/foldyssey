@@ -14,6 +14,7 @@
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.4，2026-11-01 重新发布并核验 `verified: true`） |
 | 宣传视频 | `video/out/Foldyssey-1024.mp4`（**v2 · 3:29**，1920×1080@30，男声旁白、无配乐、硬字幕；仅本人审核，未投稿；生成方式见 `video/README.md`） |
 | 投稿包 | `submission/contest_submission_pack.md`（表单速填）、`submission/bilibili_publish.md`（B 站投稿方案：标题 6 选 1、`0xaiio` 合集归类与排序、置顶评论三版） |
+| 许可 | **MIT**（`LICENSE`，Copyright (c) 2026 0xaiio，2026-11-01）；第三方依赖许可见 `submission/references_licenses.md` |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session）/ `foldyssey.ai.draft.v1`（session） |
 

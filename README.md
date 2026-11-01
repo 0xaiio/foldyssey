@@ -124,5 +124,9 @@ tools/          浏览器端验证脚本与截图
 
 ## 许可
 
-仓库尚未选择开源许可证，版权归作者所有。第三方依赖许可见
+代码以 [MIT](LICENSE) 许可发布，Copyright (c) 2026 0xaiio——可自由使用、修改、分发，
+保留版权与许可声明即可。第三方依赖许可见
 [submission/references_licenses.md](submission/references_licenses.md)。
+
+MIT 只覆盖本仓库的代码；Demaine 等人的论文、定理表述与作者姓名不在其中，引用请按
+原文出处标注。
