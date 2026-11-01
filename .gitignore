@@ -54,3 +54,11 @@ ai/
 
 # formula rasteriser output (tools/svgprobe.py)
 .tmp-formulas/
+
+# video build products (regenerate with video/README.md)
+video/gen/
+video/out/
+video/audio/
+
+# loose review frames
+video/*.png

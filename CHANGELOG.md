@@ -2,6 +2,55 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/)，版本号遵循语义化版本。
 
+## [交付件] — 2026-11-01 · 宣传视频与投稿材料（应用版本仍为 0.7.4）
+
+> 本轮不加功能、不改应用代码，只补赛事要求的两个交付件。应用版本号保持不变，
+> 因为线上链接与仓库仍然一一对应。
+
+### 新增
+
+- **宣传视频 `video/`（3:47，1080p30）**。本机没有可用的浏览器（Edge / Chromium 启动即退出），
+  所以不是录屏：几何由 `src/tests/video.dump.test.ts` 从 `applyCuts()` 真实导出，
+  画面由 Pillow 逐帧绘制（`render.py` + `scenes.py`），折叠/展开用的是与
+  `src/geometry/fold.ts` 逐行对应的矩阵公式；界面段落用 4 张自查截图。
+  - 旁白逐句合成（SAPI 中文语音），场景长度由音频长度决定 → 字幕与画面不会错位；
+  - 配乐 `music.py` 用 numpy 合成（Karplus-Strong 拨弦 + 正弦垫音 + 多抽头延迟），
+    无第三方素材；
+  - 字幕：`gen/subtitles.ass`（烧入）与 `gen/subtitles.srt`（外挂）；
+  - 封面：`out/Foldyssey-cover-1146x717.png`；
+  - 一条命令链：`tts.py` → `music.py` → `render.py --video` → `make.py`（详见 `video/README.md`）。
+- **`submission/bilibili_publish.md`**：标题（3 个备选）、封面、分区、10 个标签
+  （含活动标签「万物研究所」）、可直接粘贴的简介（含 9 个章节时间戳）、投稿设置与自检清单、
+  以及被判定「非自制」时的举证材料。
+- **`submission/contest_submission_pack.md`**：1024 赛事表单的速填包 —— 可直接复制的内容、
+  6 条扫读亮点、截图顺序、视频信息、必须本人完成的 7 项、材料清单与 10 分钟自检。
+- `src/tests/video.{dump,margin}.test.ts`：视频的几何与容差数据导出脚本，默认跳过
+  （`FOLDYSSEY_VIDEO=1` 才运行），不影响默认测试套件。
+
+### 变更
+
+- `submission/entry_description.md` 与 v0.7.4 对齐：100 字版的「四层纸」改为「层层纸」；
+  500 字版的「29 个单元测试」改为 214 个测试；功能表的「6 关」改为「16 关 / 5 阶段」；
+  AI 的描述改成「结构元素 + 对称阶数 1/2/4/8」；补技术栈。
+- `submission/contest_form_checklist.md`：演示视频一栏从「未录制」改为「已生成」。
+
+### 成片参数
+
+| 项 | 值 |
+|---|---|
+| 文件 | `video/out/Foldyssey-1024.mp4` · 31.8 MB |
+| 时长 | 3:46.66（226.66 s） |
+| 规格 | H.264 High / 1920×1080 / 30 fps / AAC 48 kHz 立体声 192 kbps / `+faststart` |
+| 响度 | `loudnorm I=-16 LUFS, TP=-1.5 dBTP`（实测 mean −19.4 dB，max −0.7 dB） |
+| 字幕 | 硬字幕 38 条（Microsoft YaHei 46 px，描边 2.4）；外挂 `gen/subtitles.srt` |
+| SHA-256 | `5538593734408d37c77638a4e65d10b1dd9ae75042c08e7e59b4dca7f00ece2f` |
+
+### 数据
+
+- 视频里出现的数字都来自实测：16 关 / 5 折法 / 4 刀具（`levels.ts`、`fold.ts`、`cut.ts`）、
+  214 passed、行覆盖率 96.73%（`npx vitest run --coverage`）、
+  一格滑块最差 96.55%（`ring`，达标线 94%，`video.margin.test.ts`）。
+
 ## [0.7.4] — 2026-11-01
 
 ### 修复
