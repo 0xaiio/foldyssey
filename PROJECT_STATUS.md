@@ -13,7 +13,7 @@
 | 测试 | `npm run test` → **214 passed \| 1 skipped**（11 个文件）；`npx vitest run --coverage` → 行 **96.73%** / 分支 **87.89%** / 函数 **95.06%**（核心 17 个模块）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.4，2026-11-01 重新发布并核验 `verified: true`） |
 | 宣传视频 | `video/out/Foldyssey-1024.mp4`（**v2 · 3:29**，1920×1080@30，男声旁白、无配乐、硬字幕；仅本人审核，未投稿；生成方式见 `video/README.md`） |
-| 投稿包 | `submission/contest_submission_pack.md`（表单速填）、`submission/bilibili_publish.md`（B 站标题/标签/简介） |
+| 投稿包 | `submission/contest_submission_pack.md`（表单速填）、`submission/bilibili_publish.md`（B 站投稿方案：标题 6 选 1、`0xaiio` 合集归类与排序、置顶评论三版） |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session）/ `foldyssey.ai.draft.v1`（session） |
 

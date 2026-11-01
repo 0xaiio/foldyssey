@@ -14,7 +14,7 @@
 | 作品简介 100/300/500 字 | 见 `entry_description.md` | 已准备 |
 | 体验链接 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z | 已发布并核验 |
 | 操作截图 | `submission/screenshots/` 6 张 | 已准备 |
-| 演示视频 | `video/out/Foldyssey-1024.mp4`（3:47，1080p30，硬字幕） | **已生成**；B 站投稿包见 `bilibili_publish.md` |
+| 演示视频 | `video/out/Foldyssey-1024.mp4`（3:29，1080p30，硬字幕） | **已生成**；B 站投稿方案见 `bilibili_publish.md` |
 | 标签/分类 | 网页应用 · 创意工具 · 数学/教育 · 纸艺 | 待按表单选项选择 |
 | 创作说明/开发记录 | `submission/creation_trace.md` | 已准备 |
 | AI 使用披露 | `submission/ai_usage_disclosure.md` | 已准备 |

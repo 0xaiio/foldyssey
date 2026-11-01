@@ -56,12 +56,12 @@ AI 只挑选参数，不生成图片；越界的枚举与数值会被映射或�
 
 ## 宣传视频
 
-3 分 47 秒的 1024 参赛片在 `video/`：`out/Foldyssey-1024.mp4`（1080p30，硬字幕）、
-`out/Foldyssey-cover-1146x717.png`（B 站封面）。
+3 分 29 秒的 1024 参赛片在 `video/`：`out/Foldyssey-1024.mp4`（1080p30，硬字幕，
+男声旁白、无配乐）、`out/Foldyssey-cover-1146x717.png`（B 站封面）。
 
 本机没有可用的浏览器（Edge / Chromium 启动即退出），所以它**不是录屏**：几何从
 `applyCuts()` 真实导出，画面用 Pillow 逐帧绘制，折叠动画与 `src/geometry/fold.ts`
-逐行对应；旁白由文稿逐句合成，场景长度由音频长度决定；配乐用 numpy 合成。
+逐行对应；旁白由文稿逐句合成（Edge 神经男声），场景长度由音频长度决定，全片只有人声。
 一条命令链重做全片，见 [`video/README.md`](video/README.md)。
 
 ## 快速开始

@@ -1,6 +1,6 @@
 # 60 秒演示脚本（Demo Script）
 
-> **已被取代（2026-11-01）**：正式交付的是 3 分 47 秒的成片 `video/out/Foldyssey-1024.mp4`，
+> **已被取代（2026-11-01）**：正式交付的是 3 分 29 秒的成片 `video/out/Foldyssey-1024.mp4`，
 > 分镜见 `video/out/shotlist.md`、口播稿见 `video/gen/script.md`、投稿信息见
 > `submission/bilibili_publish.md`。本文件保留作历史记录，也仍然适用于「需要一条 60 秒短视频」的场合。
 
