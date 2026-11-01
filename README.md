@@ -9,7 +9,7 @@ Foldyssey 是一座可以玩的数字折剪纸实验室：选一种折叠、拖�
 - **在线体验**：见 [submission/publish_verification.md](submission/publish_verification.md)（发布后填写）
 - **技术栈**：React 18 + TypeScript + Vite + SVG + `polygon-clipping` + `zod` +
   `@tencent-ai/workbuddy-cloud-sdk`（运行时模型）+ Vitest
-- **定位**：WorkBuddy「1024 造物挑战」参赛作品 · v0.7.3
+- **定位**：WorkBuddy「1024 造物挑战」参赛作品 · v0.7.4
 
 ---
 
@@ -27,7 +27,7 @@ S = ⋃ᵢ ( Pᵢ \ fᵢ⁻¹( D ∩ fᵢ(Pᵢ) ) )
 
 ---
 
-## 已实现（v0.7.3）
+## 已实现（v0.7.4）
 
 | 能力 | 状态 |
 |---|---|
@@ -107,7 +107,7 @@ src/pages/      首页 / 关卡 / 工坊 / 作品 / 数学 / 关于 / AI 灵感
 src/content/    公式的生成产物（LaTeX 源在 tools/formulas.source.mjs）
 src/services/   本地存储、SVG/PNG 导出
 src/app/        哈希路由与外壳
-src/tests/      单元 + 结构渲染 + 审查回归（199 个用例）
+src/tests/      单元 + 结构渲染 + 审查回归（214 个用例）
 docs/           规格、接口、几何、测试、审查、发布、安全、ADR
 submission/     参赛材料
 tools/          浏览器端验证脚本与截图

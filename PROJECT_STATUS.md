@@ -14,7 +14,8 @@
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.4，2026-11-01 重新发布并核验 `verified: true`） |
 | 宣传视频 | `video/out/Foldyssey-1024.mp4`（**v2 · 3:29**，1920×1080@30，男声旁白、无配乐、硬字幕；生成方式见 `video/README.md`） |
 | B 站投稿 | **已投**（2026-11-01）：`BV18pxs6REdh` https://www.bilibili.com/video/BV18pxs6REdh ；分区 知识·科学科普（tid 201），活动 万物研究所，`0xaiio` 合集第 3 集，置顶评论 rpid 322588221472 |
-| 投稿包 | `submission/contest_submission_pack.md`（表单速填）、`submission/bilibili_publish.md`（B 站投稿方案 + 实际提交记录） |
+| 投稿包 | `submission/contest_submission_pack.md`（按官方表单 01–13 逐项填写）、`submission/contest_form_checklist.md`（核对清单）、`submission/bilibili_publish.md`（B 站投稿记录） |
+| 赛事表单 | **待提交**（截止 2026-11-01 23:59）：13 项中 9 项就绪；缺 07 创作对话链接、11 UserID、12 手机号、03 昵称（均需本人），13 授权需本人勾选 |
 | 许可 | **MIT**（`LICENSE`，Copyright (c) 2026 0xaiio，2026-11-01）；第三方依赖许可见 `submission/references_licenses.md` |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session）/ `foldyssey.ai.draft.v1`（session） |
@@ -43,7 +44,7 @@
 |---|---|---|
 | 实体可打印模板 | 未实现 | 未做 A4 比例与折序核验，故不写 `verified` |
 | 演示视频 | 已生成（3:29） | `video/out/Foldyssey-1024.mp4`；已投 B 站 `BV18pxs6REdh` |
-| 官方投稿 | 未提交 | 赛事表单需本人登录填写身份信息并确认条款；B 站稿件已发布 |
+| 官方投稿 | **待提交** | 赛事表单 13 项已备好 9 项；缺个人信息与创作对话链接，B 站稿件已发布 |
 | 真机 / Safari 回归 | 未执行 | 仅 Chromium 内核 + 390px 视口 |
 | 浏览器级回归 | 阻塞 | 本机 Edge/Chromium 启动即退出（2026-10-31 起），`ui_check.py` 需在有浏览器的环境重跑 |
 | AI 曲线 | 未实现 | AI schema 仍只有 line/notch/hole/sawtooth，见「已知问题 0b」 |

@@ -2,7 +2,11 @@
 
 记录这个作品是怎么被做出来的：关键决策、实际执行过的步骤、可追溯的证据。
 
-## 时间线（2026-10-30，北京时间）
+> **本次更新（2026-11-01）**：下表是 **10-30 首晚**的记录，不是全部。
+> 后续三天又完成了 AI 灵感、曲线剪、5 个典藏图案、全面审查与公式流水线，
+> 见文末「后续里程碑」。文中的用例数、关卡数已按当前 v0.7.4 校正。
+
+## 时间线（2026-10-30 首晚，北京时间）
 
 | 时间 | 阶段 | 实际做的事 |
 |---|---|---|
@@ -20,7 +24,8 @@
 1. **二维精确几何优先**，不引入物理引擎（ADR-0001）。
 2. **SVG + 轻量插值**，首版不上 Three.js（ADR-0002）。
 3. **一刀与多刀严格分离**，工坊的多切口标注为数字图案（ADR-0003）。
-4. **开发期 AI ≠ 运行时 AI**，本版不接运行时模型（ADR-0004）。
+4. **开发期 AI ≠ 运行时 AI**：v0.1.0 不接运行时模型；v0.6.0 起「AI 灵感」页接入，
+   但模型只出受约束参数、不画图（ADR-0004 的结论保留，状态已补注）。
 5. **本地存储优先**，零账号零后端（ADR-0005）。
 
 ## 开发过程中被推翻的判断
@@ -37,9 +42,9 @@
 
 | 证据 | 位置 |
 |---|---|
-| 单元测试输出（29 passed） | `TEST_REPORT.md` §2026-10-30 第二轮 |
-| 浏览器检查输出（19/19，console 0） | `TEST_REPORT.md`、`submission/publish_verification.md` |
-| 截图（11 张原始 + 6 张提交用） | `tools/shots/`、`submission/screenshots/` |
+| 单元测试输出（29 passed，首晚；当前 **214 passed / 3 skipped**） | `TEST_REPORT.md` |
+| 浏览器检查输出（19/19，console 0；后续因本机浏览器故障停在 v0.6.0 的 45/45） | `TEST_REPORT.md`、`submission/publish_verification.md` |
+| 截图（11 张原始 + 14 张提交用） | `tools/shots/`、`submission/screenshots/` |
 | 验证脚本 | `tools/ui_check.py` |
 | Git 历史 | `git log --oneline`（3 个里程碑提交 + 本材料提交） |
 
@@ -52,13 +57,25 @@
 - **不要**把含个人账号、手机号、Cookie 的截图直接上传；必要时打码。
 - 若平台只接受截图，建议截取：需求文档首屏、几何测试通过、发布成功三段。
 
+## 后续里程碑（2026-10-31 → 11-01）
+
+| 日期 | 做了什么 | 证据 |
+|---|---|---|
+| 10-31 | AI 灵感页：运行时模型 + schema 强制修复 + 6 个可编辑模板 | `docs/AI_INTEGRATION.md`、`src/ai/`、截图 `10-ai-gallery.png` |
+| 10-31 | 判定重设计：四档评分、阶段阈值 92/94/96/96/96、一键诊断 | `docs/UX_REDESIGN.md`、`src/puzzle/assist.ts` |
+| 10-31 | 新增 5 个典藏图案（八方连珠 / 藻井 / 菱窗 / 六出 / 重瓣），关卡扩到 16 | `docs/PATTERNS.md`、`src/puzzle/levels.ts` |
+| 10-31 | 曲线剪：高度场刀口、误差界、剪刀能力四级 | `docs/SCISSOR_CURVES.md`、`src/geometry/cut.ts` |
+| 10-31 | 全面代码审查：修 3 个"静默少剪一层"的布尔运算缺陷，覆盖率 96.7% | `docs/CODE_REVIEW.md`、`TEST_REPORT.md` |
+| 11-01 | 公式改为构建期 LaTeX→SVG（8 条，源文件哈希防漂移） | `docs/MATH_RENDERING.md`、`src/content/formulas.generated.ts` |
+| 11-01 | 代码改用 MIT；宣传片 v2（3:29，男声无配乐）并投 B 站 | `LICENSE`、`submission/bilibili_publish.md` |
+
 ## 复现这份作品
 
 ```bash
 git clone https://github.com/0xaiio/foldyssey.git
 cd foldyssey
 npm install
-npm run test        # 29 passed
+npm run test        # 214 passed / 3 skipped
 npm run build
 npm run preview     # http://127.0.0.1:4173
 ```
