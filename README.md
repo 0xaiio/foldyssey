@@ -58,6 +58,7 @@ AI 只挑选参数，不生成图片；越界的枚举与数值会被映射或�
 
 3 分 29 秒的 1024 参赛片在 `video/`：`out/Foldyssey-1024.mp4`（1080p30，硬字幕，
 男声旁白、无配乐）、`out/Foldyssey-cover-1146x717.png`（B 站封面）。
+已发布到 B 站：[`BV18pxs6REdh`](https://www.bilibili.com/video/BV18pxs6REdh)。
 
 本机没有可用的浏览器（Edge / Chromium 启动即退出），所以它**不是录屏**：几何从
 `applyCuts()` 真实导出，画面用 Pillow 逐帧绘制，折叠动画与 `src/geometry/fold.ts`

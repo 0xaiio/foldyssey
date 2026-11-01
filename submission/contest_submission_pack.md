@@ -16,7 +16,7 @@
 | 作品简介（300 字） | 见 `entry_description.md`「300 字版」 |
 | 作品简介（500 字） | 见 `entry_description.md`「500 字版」 |
 | 体验链接 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z |
-| 演示视频 | `video/out/Foldyssey-1024.mp4`（3:29，纯人声无配乐；本轮仅本人审核，暂不投稿） |
+| 演示视频 | `video/out/Foldyssey-1024.mp4`（3:29，纯人声无配乐）；已投 B 站 `BV18pxs6REdh` |
 | 视频时长 | 3 分 29 秒（赛事要求 3–5 分钟） |
 | 分类 / 标签 | 网页应用 · 创意工具 · 数学可视化 · 纸艺 |
 | 技术栈 | React 18 + TypeScript + Vite + Tailwind v4；polygon-clipping；构建期 MathJax |
@@ -55,7 +55,7 @@
 | 项 | 值 |
 |---|---|
 | 本地文件 | `video/out/Foldyssey-1024.mp4`（1080p30，H.264 + AAC，硬字幕，无配乐） |
-| B 站链接 | **未投稿**（按要求先由本人审核；投稿包见 `submission/bilibili_publish.md`） |
+| B 站链接 | https://www.bilibili.com/video/BV18pxs6REdh （2026-11-01 投稿，已过审；合集 `0xaiio` 第 3 集） |
 | 字幕 | 已烧入；外挂 SRT：`video/gen/subtitles.srt` |
 | 封面 | `video/out/Foldyssey-cover-1146x717.png` |
 | 文稿 | `video/gen/script.md`（口播稿，含每句时间） |
@@ -70,8 +70,8 @@
 | 填写真实姓名 / 联系方式 / 城市 | 个人信息，不能代填、不能编造 |
 | 上传截图与视频、勾选原创与授权条款 | 法律授权行为，需要本人确认 |
 | 点击「提交」 | 平台要求本人确认 |
-| B 站发布（上传、选活动、提交审核） | 需要账号与实名状态 |
-| 仓库是否公开 | 当前为**私有**（匿名为 404）。若要给评委看源码，需在 GitHub 设置里改可见性 |
+| B 站发布（上传、选活动、提交审核） | 已完成（`BV18pxs6REdh`，分区/活动/合集/置顶评论均核验） |
+| 仓库是否公开 | 已公开：https://github.com/0xaiio/foldyssey （MIT 许可） |
 
 ## 六、材料清单（提交页可能要「附件」）
 

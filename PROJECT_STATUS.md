@@ -12,8 +12,9 @@
 | 构建 | `npm run build` 通过（主包 314.7 kB / gzip 107.1 kB，其中公式 +5.1 kB gzip；`AiPage` 独立 chunk 157.3 kB 懒加载；CSS 39.7 kB / gzip 8.9 kB） |
 | 测试 | `npm run test` → **214 passed \| 1 skipped**（11 个文件）；`npx vitest run --coverage` → 行 **96.73%** / 分支 **87.89%** / 函数 **95.06%**（核心 17 个模块）；`tools/ui_check.py` 45/45 **停在 v0.6.0**，本机已无法启动浏览器 |
 | 线上 | https://foldyssey.app.workbuddy.host/?sharecode=AXD6562N6Z（v0.7.4，2026-11-01 重新发布并核验 `verified: true`） |
-| 宣传视频 | `video/out/Foldyssey-1024.mp4`（**v2 · 3:29**，1920×1080@30，男声旁白、无配乐、硬字幕；仅本人审核，未投稿；生成方式见 `video/README.md`） |
-| 投稿包 | `submission/contest_submission_pack.md`（表单速填）、`submission/bilibili_publish.md`（B 站投稿方案：标题 6 选 1、`0xaiio` 合集归类与排序、置顶评论三版） |
+| 宣传视频 | `video/out/Foldyssey-1024.mp4`（**v2 · 3:29**，1920×1080@30，男声旁白、无配乐、硬字幕；生成方式见 `video/README.md`） |
+| B 站投稿 | **已投**（2026-11-01）：`BV18pxs6REdh` https://www.bilibili.com/video/BV18pxs6REdh ；分区 知识·科学科普（tid 201），活动 万物研究所，`0xaiio` 合集第 3 集，置顶评论 rpid 322588221472 |
+| 投稿包 | `submission/contest_submission_pack.md`（表单速填）、`submission/bilibili_publish.md`（B 站投稿方案 + 实际提交记录） |
 | 许可 | **MIT**（`LICENSE`，Copyright (c) 2026 0xaiio，2026-11-01）；第三方依赖许可见 `submission/references_licenses.md` |
 | 云服务 | `wbapp_l9MabRuQZEm757fiKlnw4Z`，billingStatus `normal`，provisionStatus `assigned` |
 | 本地存储键 | `foldyssey.artworks.v1` / `foldyssey.progress.v1` / `foldyssey.ai.usage.v1`（session）/ `foldyssey.ai.draft.v1`（session） |
@@ -41,8 +42,8 @@
 | 项 | 状态 | 说明 |
 |---|---|---|
 | 实体可打印模板 | 未实现 | 未做 A4 比例与折序核验，故不写 `verified` |
-| 演示视频 | 未录制 | 脚本见 `submission/demo_script_60s.md`，需本人录屏 |
-| 官方投稿 | 未提交 | 需本人登录填写身份信息并确认条款 |
+| 演示视频 | 已生成（3:29） | `video/out/Foldyssey-1024.mp4`；已投 B 站 `BV18pxs6REdh` |
+| 官方投稿 | 未提交 | 赛事表单需本人登录填写身份信息并确认条款；B 站稿件已发布 |
 | 真机 / Safari 回归 | 未执行 | 仅 Chromium 内核 + 390px 视口 |
 | 浏览器级回归 | 阻塞 | 本机 Edge/Chromium 启动即退出（2026-10-31 起），`ui_check.py` 需在有浏览器的环境重跑 |
 | AI 曲线 | 未实现 | AI schema 仍只有 line/notch/hole/sawtooth，见「已知问题 0b」 |

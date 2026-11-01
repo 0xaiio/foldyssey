@@ -2,6 +2,25 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/)，版本号遵循语义化版本。
 
+## [已发布] — 2026-11-01 · B 站投稿
+
+> 应用代码未改动。宣传片按 `submission/bilibili_publish.md` 投出，并把「实际参数」写回该文件。
+
+### 结果
+
+- 稿件 **`BV18pxs6REdh`**（av 117539984248077）：https://www.bilibili.com/video/BV18pxs6REdh
+- 分区 **知识 · 科学科普**（tid 201）——原文档写的「科技 → 科学科普」有误，该二级分区在知识区下
+- 活动 **万物研究所**（topic 11463 / mission 4072307）已生效
+- 合集 **`0xaiio`**（season 9343273）「正片」小节第 3 集
+- 置顶评论 rpid `322588221472`，匿名可见且 `is_up_top=true`
+
+### 修正
+
+- `submission/bilibili_publish.md`：顶部加实际提交记录；2.4/2.5/2.6/5/10 按真实结果改写；
+  补两条踩坑——合集接口字段是 `sectionId` + `episodes`（写成 `section_id`/`episode` 会返回 0 但不生效），
+  评论刚发出立刻置顶会 `-404`，等匿名可见后即可。
+- `PROJECT_STATUS.md`、`contest_submission_pack.md`、`contest_form_checklist.md`：投稿状态与仓库可见性同步为「已投 / 已公开」。
+
 ## [许可] — 2026-11-01 · 代码改用 MIT
 
 > 应用代码未改动，只改许可与相关文档。此前按 A-08 假设「不擅自选择许可证」，
